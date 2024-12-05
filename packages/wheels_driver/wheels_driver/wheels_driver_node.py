@@ -61,6 +61,7 @@ class WheelsDriverNode(ROS2Node):
                 except Exception:
                     self.get_logger().error("Failed to publish the last command.")
                     traceback.print_exc()
+            rclpy.spin_once(self)
             await asyncio.sleep(1.0 / self._frequency)
 
     async def publish_executed(self, data):
