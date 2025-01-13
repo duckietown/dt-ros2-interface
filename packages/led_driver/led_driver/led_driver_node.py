@@ -5,7 +5,7 @@ from asyncio import AbstractEventLoop
 from typing import Optional
 
 import rclpy
-from rclpy.node import Node
+from rclpy.node import Node as ROS2Node
 from std_msgs.msg import ColorRGBA
 from duckietown_msgs.msg import LEDPattern
 
@@ -17,69 +17,56 @@ from duckietown_messages.colors.rgba import RGBA
 from duckietown_messages.standard.header import Header
 
 
-class LEDDriverNode(Node):
-    """Node for controlling LEDs.
-
-    Calls the low-level functions of class :obj:`RGB_LED` that creates the PWM
-    signal used to change the color of the LEDs. The desired behavior is specified by
-    the LED index (Duckiebots and watchtowers have multiple of these) and a pattern.
-    A pattern is a combination of colors and blinking frequency.
-
-    Duckiebots have 5 LEDs that are indexed and positioned as following:
-
-        +------------------+------------------------------------------+
-        | Index            | Position (rel. to direction of movement) |
-        +==================+==========================================+
-        | 0                | Front left                               |
-        +------------------+------------------------------------------+
-        | 1                | Rear left                                |
-        +------------------+------------------------------------------+
-        | 2                | Top / Front middle  (DB1X models only)   |
-        +------------------+------------------------------------------+
-        | 3                | Rear right                               |
-        +------------------+------------------------------------------+
-        | 4                | Front right                              |
-        +------------------+------------------------------------------+
-
-    """
+class LEDDriverNode(ROS2Node):
+    """Node for controlling LEDs."""
 
     def __init__(self):
         super().__init__('leds_driver')
         self._robot_name = get_robot_name()
-        # subscribers
         self.sub = self.create_subscription(LEDPattern, "led_pattern", self.led_cb, 1)
-        # dtps publishers
         self._pattern: Optional[DTPSContext] = None
-        # event loop
         self._loop: Optional[AbstractEventLoop] = None
-        # ---
-        self.get_logger().info("Initialized.")
+        self.is_initialized = True  # Track whether the node is initialized
+        self.get_logger().info(f"Robot name: {self._robot_name}")
+        self.get_logger().info("Subscription to 'led_pattern' topic created.")
+        self.get_logger().info("LEDDriverNode initialized.")
 
     def led_cb(self, msg):
         """
-        Callback that processes the LED pattern message
+        Callback that processes the LED pattern message.
 
         Args:
             msg (LEDPattern): Message containing the LED pattern
         """
-        if self._loop is None:
+        self.get_logger().info("Received LEDPattern message.")
+        if not self.is_initialized:  # Ensure that the node is fully initialized
+            self.get_logger().warn("Node not fully initialized. Skipping message.")
             return
-        # make sure enough data is available
+
+        # Make sure enough data is available
         if len(msg.rgb_vals) != 5:
             self.get_logger().error(f"Invalid message. Expected 5 LED values, but got {len(msg.rgb_vals)}")
             return
-        # pack data
+
+        # Pack data
         raw: RawData = CarLights(
             header=Header(
                 # TODO: reuse the timestamp from the incoming message
             ),
             front_left=self._rgba(msg.rgb_vals[0]),
             front_right=self._rgba(msg.rgb_vals[4]),
-            rear_left=self._rgba(msg.rgb_vals[1]),
-            rear_right=self._rgba(msg.rgb_vals[3]),
+            # rear_left=self._rgba(msg.rgb_vals[1]),
+            # rear_right=self._rgba(msg.rgb_vals[3]),
+            back_left=self._rgba(msg.rgb_vals[1]),
+            back_right=self._rgba(msg.rgb_vals[3])  
         ).to_rawdata()
-        # schedule the message for publishing
-        asyncio.run_coroutine_threadsafe(self._pattern.publish(raw), self._loop)
+
+        # Schedule the message for publishing
+        try:
+            self.get_logger().info("Publishing LED pattern to the queue.")
+            asyncio.run_coroutine_threadsafe(self._pattern.publish(raw), self._loop)
+        except Exception as e:
+            self.get_logger().error(f"Failed to publish LED pattern: {e}")
 
     @staticmethod
     def _rgba(ros: ColorRGBA) -> RGBA:
@@ -87,15 +74,20 @@ class LEDDriverNode(Node):
 
     async def worker(self):
         try:
-            # create switchboard context
+            self.get_logger().info("Starting worker coroutine.")
+            # Create switchboard context
             switchboard = (await context("switchboard")).navigate(self._robot_name)
-            # leds pattern queue
+            self.get_logger().info("Switchboard context established.")
+            # LEDs pattern queue
             self._pattern = await (switchboard / "actuator" / "leds" / "rgba").until_ready()
-            # ---
+            self.get_logger().info("Pattern publisher initialized.")
+            # Set event loop
             self._loop = asyncio.get_event_loop()
+            self.is_initialized = True  # Set the flag when the node is initialized
+            self.get_logger().info("Event loop initialized. Node is ready to process messages.")
             await self.join()
         except Exception as e:
-            self.get_logger().error(f"Failed to navigate ToF context: {e}")
+            self.get_logger().error(f"Worker failed: {e}")
 
     async def join(self):
         while rclpy.ok():
@@ -104,22 +96,27 @@ class LEDDriverNode(Node):
     def spin(self):
         try:
             asyncio.run(self.worker())
-        except RuntimeError:
+        except RuntimeError as e:
             if rclpy.ok():
-                self.get_logger().error("An error occurred while running the event loop")
+                self.get_logger().error(f"An error occurred while running the event loop: {e}")
                 raise
 
     def on_shutdown(self):
         if self._loop is not None:
-            self.get_logger().info("Shutting down the event loop")
+            self.get_logger().info("Shutting down the event loop.")
             self._loop.stop()
 
 
 def main(args=None):
     rclpy.init(args=args)
     node = LEDDriverNode()
-    rclpy.spin(node)
-    rclpy.shutdown()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        node.get_logger().info("Shutting down node due to KeyboardInterrupt.")
+    finally:
+        rclpy.shutdown()
+        node.get_logger().info("ROS2 shutdown complete.")
 
 
 if __name__ == "__main__":
