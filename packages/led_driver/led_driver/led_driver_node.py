@@ -79,7 +79,7 @@ class LEDDriverNode(ROS2Node):
             switchboard = (await context("switchboard")).navigate(self._robot_name)
             self.get_logger().info("Switchboard context established.")
             # LEDs pattern queue
-            self._pattern = await (switchboard / "actuator" / "leds" / "rgba").until_ready()
+            self._pattern = await (switchboard / "actuator" / "lights" / "base" / "pattern").until_ready()
             self.get_logger().info("Pattern publisher initialized.")
             # Set event loop
             self._loop = asyncio.get_event_loop()
@@ -91,6 +91,7 @@ class LEDDriverNode(ROS2Node):
 
     async def join(self):
         while rclpy.ok():
+            rclpy.spin_once(self)
             await asyncio.sleep(1)
 
     def spin(self):
@@ -111,7 +112,7 @@ def main(args=None):
     rclpy.init(args=args)
     node = LEDDriverNode()
     try:
-        rclpy.spin(node)
+        node.spin()
     except KeyboardInterrupt:
         node.get_logger().info("Shutting down node due to KeyboardInterrupt.")
     finally:
