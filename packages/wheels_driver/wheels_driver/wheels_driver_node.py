@@ -29,12 +29,14 @@ class WheelsDriverNode(ROS2Node):
         # QoS profile for topics
         qos_profile = QoSProfile(depth=10)
         self.pub_wheels_cmd = self.create_publisher(WheelsCmdStamped, '~/wheels_cmd_executed', qos_profile)
+        self.pub_autopilot = self.create_publisher(Bool, '~/autopilot', qos_profile)
         self.create_subscription(WheelsCmdStamped, '~/wheels_cmd', self.cmds_cb, qos_profile)
         self.create_subscription(Bool, '~/emergency_stop', self.estop_cb, qos_profile)
 
         # DTPS context variables
         self._pwm: Optional[DTPSContext] = None
         self._estop: Optional[DTPSContext] = None
+        self._autopilot: Optional[DTPSContext] = None
         self._loop: Optional[AbstractEventLoop] = None
 
         self.get_logger().info("Initialized WheelsDriverNode.")
@@ -63,6 +65,19 @@ class WheelsDriverNode(ROS2Node):
                     traceback.print_exc()
             rclpy.spin_once(self)
             await asyncio.sleep(1.0 / self._frequency)
+
+    async def publish_autopilot(self, data):
+        try:
+            self.get_logger().info("Received data to publish on autopilot")
+            autopilot = Boolean.from_rawdata(data)
+            print(autopilot)
+            autopilot_msg = Bool()
+            autopilot_msg.data = autopilot.data
+            self.pub_autopilot.publish(autopilot_msg)
+            self.get_logger().info(f"Publishing autopilot command: autopilot={autopilot_msg.data}")
+
+        except DataDecodingError as e:
+            self.get_logger().error(f"Failed to decode an incoming message: {e.message}")
 
     async def publish_executed(self, data):
         try:
@@ -93,10 +108,18 @@ class WheelsDriverNode(ROS2Node):
             self._estop = await (switchboard / "actuator" / "wheels" / self._actuator_name / "estop").until_ready()
             self.get_logger().info("Emergency stop context is ready.")
 
+            # Setting up autopilot context
+            self._autopilot = await (switchboard / "actuator" / "wheels" / self._actuator_name / "autopilot").until_ready()
+            self.get_logger().info("Autopilot context is ready.")
+
             # Setting up filtered PWM context
             pwm_filtered = await (
                         switchboard / "actuator" / "wheels" / self._actuator_name / "pwm_filtered").until_ready()
             self.get_logger().info("Filtered PWM context is ready.")
+
+            # Subscribe to the autopilot topic
+            await self._autopilot.subscribe(self.publish_autopilot)
+            self.get_logger().info("Subscribed to autopilot topic for autopilot commands.")
 
             # Subscribe to the pwm_filtered topic
             await pwm_filtered.subscribe(self.publish_executed)
