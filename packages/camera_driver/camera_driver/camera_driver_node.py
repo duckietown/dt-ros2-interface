@@ -39,7 +39,8 @@ class CameraNode(Node):
         # create CompressedImage message
         msg = ROS2CompressedImage()
         msg.header.stamp = self._ros2.get_clock().now().to_msg()
-        msg.header.frame_id = jpeg.header.frame
+        # msg.header.frame_id = jpeg.header.frame # TODO: restore this
+        msg.header.frame_id = "camera_color_optical_frame"
         msg.format = jpeg.format
         msg.data = jpeg.data
         self.pub_img.publish(msg)
