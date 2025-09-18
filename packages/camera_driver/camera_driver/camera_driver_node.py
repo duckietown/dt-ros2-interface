@@ -133,7 +133,9 @@ class CameraNode(Node):
 
     async def join(self):
         while not self.is_shutdown:
-            await asyncio.sleep(1)
+            # Spin the ROS2 node to handle callbacks and parameter services
+            rclpy.spin_once(self._ros2, timeout_sec=0.1)
+            await asyncio.sleep(0.1)
 
 
 def main(args=None):
