@@ -7,11 +7,11 @@
 # ament-cmake-googletest
 
 # ROS2 packages
-ros-rolling-ros-base
-ros-rolling-rclpy
-ros-rolling-std-msgs
-ros-rolling-rosidl-default-generators
-ros-rolling-tf-transformations
+ros-jazzy-ros-base
+ros-jazzy-rclpy
+ros-jazzy-std-msgs
+ros-jazzy-rosidl-default-generators
+ros-jazzy-tf-transformations
 
 # TODO: cv-bridge is not very efficient, replace it with turbo-jpeg
-ros-rolling-cv-bridge
+ros-jazzy-cv-bridge

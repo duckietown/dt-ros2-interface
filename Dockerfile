@@ -5,8 +5,6 @@ ARG PROJECT_MAINTAINER
 # pick an icon from: https://fontawesome.com/v4.7.0/icons/
 ARG PROJECT_ICON="cube"
 ARG PROJECT_FORMAT_VERSION
-# ROS2
-ARG ROS2_DISTRO=rolling
 
 # ==================================================>
 # ==> Do not change the code below this line
