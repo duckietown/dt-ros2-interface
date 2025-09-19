@@ -1,6 +1,0 @@
---2024-07-18 19:10:43--  http://akshet.local:2375/v1.45/containers/json?all=1
-Resolving akshet.local (akshet.local)... 192.168.1.66
-Connecting to akshet.local (akshet.local)|192.168.1.66|:2375... connected.
-HTTP request sent, awaiting response... 400 Bad Request
-2024-07-18 19:10:43 ERROR 400: Bad Request.
-
