@@ -13,8 +13,8 @@ source /environment.sh
 # Initialize launch file
 dt-launchfile-init
 
-# Launch the tof_driver node
-dt-exec ros2 run tof_driver tof_driver_node --ros-args --param name:=front_center
+# Launch the ToF driver node using launch file
+dt-exec ros2 launch tof_driver tof_driver.launch.py robot_name:=$VEHICLE_NAME sensor_name:=front_center
 
 # Wait for app to end
 dt-launchfile-join

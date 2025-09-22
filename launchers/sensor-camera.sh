@@ -8,14 +8,8 @@ source /environment.sh
 # NOTE: Use the variable DT_PROJECT_PATH to know the absolute path to your code
 # NOTE: Use `dt-exec COMMAND` to run the main process (blocking process)
 
-# TODO: update to ROS2 launch
-#exec ros2 launch --wait camera_driver camera_driver_node.launch veh:=$VEHICLE_NAME
-
-# initialize launch file
-dt-launchfile-init
-
-# launch subscriber
-ros2 run camera_driver camera_driver_node
+# Launch the camera driver node using launch file
+dt-exec ros2 launch camera_driver camera_driver.launch.py robot_name:=$VEHICLE_NAME
 
 # wait for app to end
 dt-launchfile-join

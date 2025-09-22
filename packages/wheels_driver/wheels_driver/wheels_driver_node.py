@@ -21,7 +21,7 @@ from duckietown_messages.utils.exceptions import DataDecodingError
 class WheelsDriverNode(ROS2Node):
     def __init__(self, actuator_name: str = "base"):
         robot_name = get_robot_name()
-        super().__init__('wheels_driver_node', namespace=f"/{robot_name}")
+        super().__init__('wheels_driver_node')
         self._robot_name = robot_name
         self._actuator_name = actuator_name
         self._frequency = 30.0
