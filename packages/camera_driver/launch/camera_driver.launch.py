@@ -2,13 +2,12 @@
 
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.actions import DeclareLaunchArgument, GroupAction
+from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
-from launch.conditions import IfCondition, UnlessCondition
 
 
 def generate_launch_description():
-    """Generate launch description for LED driver with various configurations."""
+    """Generate launch description for camera driver node."""
     
     # Declare launch arguments
     robot_name_arg = DeclareLaunchArgument(
@@ -17,10 +16,10 @@ def generate_launch_description():
         description='Name of the robot (leave empty for auto-detection)'
     )
     
-    lights_name_arg = DeclareLaunchArgument(
-        'lights_name',
-        default_value='base',
-        description='Name of the lights configuration (default: base)'
+    camera_name_arg = DeclareLaunchArgument(
+        'camera_name',
+        default_value='front_center',
+        description='Name of the camera configuration'
     )
     
     use_sim_time_arg = DeclareLaunchArgument(
@@ -35,14 +34,14 @@ def generate_launch_description():
         description='Logging level (debug, info, warn, error, fatal)'
     )
     
-    # Create the LED driver node
-    led_driver_node = Node(
-        package='led_driver',
-        executable='led_driver_node',
-        name='led_driver_node',
+    # Create the camera driver node
+    camera_driver_node = Node(
+        package='camera_driver',
+        executable='camera_driver_node',
+        name='camera_driver_node',
         namespace=LaunchConfiguration('robot_name'),
         parameters=[{
-            'lights_name': LaunchConfiguration('lights_name'),
+            'camera_name': LaunchConfiguration('camera_name'),
             'use_sim_time': LaunchConfiguration('use_sim_time'),
         }],
         arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
@@ -54,10 +53,10 @@ def generate_launch_description():
     
     return LaunchDescription([
         robot_name_arg,
-        lights_name_arg,
+        camera_name_arg,
         use_sim_time_arg,
         log_level_arg,
-        led_driver_node,
+        camera_driver_node,
     ])
 
 

@@ -21,7 +21,7 @@ class WheelEncoderNode(ROS2Node):
 
     def __init__(self):
         self._robot_name = get_robot_name()
-        super().__init__('wheel_encoder_node', namespace=f"/{self._robot_name}")
+        super().__init__('wheel_encoder_node')
         # get parameters
         self.declare_parameter("wheel", "left")  # Default value
         self._wheel = self.get_parameter("wheel").get_parameter_value().string_value

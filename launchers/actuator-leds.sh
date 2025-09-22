@@ -12,8 +12,8 @@ source /environment.sh
 # Initialize launch file
 dt-launchfile-init
 
-# Launch the tof_driver node
-dt-exec ros2 run led_driver led_driver_node
+# Launch the LED driver node using launch file
+dt-exec ros2 launch led_driver led_driver.launch.py robot_name:=$VEHICLE_NAME
 
 # Wait for app to end
 dt-launchfile-join

@@ -27,8 +27,8 @@ def generate_launch_description():
         package='led_driver',
         executable='led_driver_node',
         name='led_driver_node',
+        namespace=LaunchConfiguration('robot_name'),
         parameters=[{
-            'robot_name': LaunchConfiguration('robot_name'),
             'lights_name': LaunchConfiguration('lights_name'),
         }],
         output='screen',
