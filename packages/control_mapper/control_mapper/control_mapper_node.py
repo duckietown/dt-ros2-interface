@@ -119,10 +119,13 @@ class ControlMapperNode(ROS2Node):
 def main(args: Optional[list[str]] = None) -> None:
     rclpy.init(args=args)
     node = ControlMapperNode()
-    node.spin()
-    rclpy.shutdown()
+    try:
+        node.spin()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
 
 
 if __name__ == "__main__":
     main()
-
