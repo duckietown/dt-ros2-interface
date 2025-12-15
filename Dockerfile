@@ -142,3 +142,5 @@ LABEL \
 # <== Do not change the code above this line
 # <================================================== \
 
+# install mavros geographiclib datasets
+RUN wget -O - https://raw.githubusercontent.com/mavlink/mavros/ros2/mavros/scripts/install_geographiclib_datasets.sh | bash
