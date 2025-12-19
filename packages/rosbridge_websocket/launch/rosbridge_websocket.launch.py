@@ -22,7 +22,7 @@ def generate_launch_description():
     
     address_arg = DeclareLaunchArgument(
         'address',
-        default_value='',
+        default_value='0.0.0.0',
         description='Address to bind to'
     )
     
