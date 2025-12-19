@@ -12,8 +12,12 @@ ros-jazzy-rclpy
 ros-jazzy-std-msgs
 ros-jazzy-rosidl-default-generators
 ros-jazzy-tf-transformations
-ros-jazzy-foxglove-bridge
-ros-jazzy-mavros
 
 # TODO: cv-bridge is not very efficient, replace it with turbo-jpeg
 ros-jazzy-cv-bridge
+
+ros-jazzy-rosbridge-suite
+ros-jazzy-rosapi
+ros-jazzy-foxglove-bridge
+ros-jazzy-mavros
+
