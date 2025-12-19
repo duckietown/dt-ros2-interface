@@ -11,8 +11,8 @@ source /environment.sh
 # Initialize launch file
 dt-launchfile-init
 
-# Launch left wheel encoder node
-dt-exec ros2 run wheel_encoder_driver wheel_encoder_driver_node --ros-args --param wheel:=left
+# Launch left wheel encoder node using launch file
+dt-exec ros2 launch wheel_encoder_driver wheel_encoder_driver.launch.py robot_name:=$VEHICLE_NAME wheel:=left
 
 # Wait for app to end
 dt-launchfile-join

@@ -9,7 +9,7 @@ from geometry_msgs.msg import TransformStamped, Transform, Quaternion
 from tf2_ros import TransformBroadcaster
 
 from dt_robot_utils import get_robot_name
-from dtps import context
+from dtps import context, ContextConfig
 from dtps_http import RawData
 from duckietown_messages.standard.integer import Integer
 from duckietown_messages.utils.exceptions import DataDecodingError
@@ -20,8 +20,8 @@ RESOLUTION: int = 135
 class WheelEncoderNode(ROS2Node):
 
     def __init__(self):
-        super().__init__('wheel_encoder_node')
         self._robot_name = get_robot_name()
+        super().__init__('wheel_encoder_node')
         # get parameters
         self.declare_parameter("wheel", "left")  # Default value
         self._wheel = self.get_parameter("wheel").get_parameter_value().string_value
@@ -64,6 +64,8 @@ class WheelEncoderNode(ROS2Node):
         try:
             switchboard = (await context("switchboard")).navigate(self._robot_name)
             encoder = await (switchboard / "sensor" / "wheel_encoder" / self._wheel / "ticks").until_ready()
+            # Enable resilient reconnection to the DTPS topic
+            encoder = encoder.configure(ContextConfig(patient=True))
             await encoder.subscribe(self.publish)
         except Exception as e:
             self.get_logger().error(f"Failed to navigate wheel encoder context: {str(e)}")
@@ -72,7 +74,9 @@ class WheelEncoderNode(ROS2Node):
 
     async def join(self):
         while rclpy.ok():
-            await asyncio.sleep(1)
+            # Spin the ROS2 node to handle callbacks and parameter services
+            rclpy.spin_once(self, timeout_sec=0.1)
+            await asyncio.sleep(0.1)
 
     def spin(self):
         try:

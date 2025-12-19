@@ -17,8 +17,8 @@ OUT_OF_RANGE = 999
 
 class ToFNode(ROS2Node):
     def __init__(self):
-        super().__init__('tof_node')
         self._robot_name = get_robot_name()
+        super().__init__('tof_node', namespace=f"/{self._robot_name}")
         # arguments
         self.declare_parameter("sensor_name", "front_center")
         self._sensor_name = self.get_parameter("sensor_name").get_parameter_value().string_value
@@ -57,7 +57,17 @@ class ToFNode(ROS2Node):
         tof_msg = ROSRange()
         tof_msg.header = Header()
         tof_msg.header.stamp = self.get_clock().now().to_msg()
-        tof_msg.header.frame_id = tof.header.frame
+        frame_id = getattr(tof.header, "frame", None)
+        if isinstance(frame_id, bytes):
+            try:
+                frame_id = frame_id.decode("utf-8", errors="ignore")
+            except Exception:
+                frame_id = ""
+        elif frame_id is None:
+            frame_id = ""
+        elif not isinstance(frame_id, str):
+            frame_id = str(frame_id)
+        tof_msg.header.frame_id = frame_id
         tof_msg.max_range = float(MAX_RANGE)
         tof_msg.range = float(distance)  # Ensure distance is float
         tof_msg.variance = 0.0
@@ -79,7 +89,9 @@ class ToFNode(ROS2Node):
 
     async def join(self):
         while rclpy.ok():
-            await asyncio.sleep(1)
+            # Spin the ROS2 node to handle callbacks and parameter services
+            rclpy.spin_once(self, timeout_sec=0.1)
+            await asyncio.sleep(0.1)
 
     def spin(self):
         try:

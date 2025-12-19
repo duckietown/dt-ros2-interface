@@ -5,8 +5,6 @@ ARG PROJECT_MAINTAINER
 # pick an icon from: https://fontawesome.com/v4.7.0/icons/
 ARG PROJECT_ICON="cube"
 ARG PROJECT_FORMAT_VERSION
-# ROS2
-ARG ROS2_DISTRO=jazzy
 
 # ==================================================>
 # ==> Do not change the code below this line
@@ -144,3 +142,5 @@ LABEL \
 # <== Do not change the code above this line
 # <================================================== \
 
+# install mavros geographiclib datasets
+RUN wget -O - https://raw.githubusercontent.com/mavlink/mavros/ros2/mavros/scripts/install_geographiclib_datasets.sh | bash

@@ -16,6 +16,8 @@ ros-jazzy-tf-transformations
 # TODO: cv-bridge is not very efficient, replace it with turbo-jpeg
 ros-jazzy-cv-bridge
 
-# rosbridge for web interface
 ros-jazzy-rosbridge-suite
 ros-jazzy-rosapi
+ros-jazzy-foxglove-bridge
+ros-jazzy-mavros
+

@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>control_mapper</name>
+  <version>0.0.1</version>
+  <description>A control mapper (ROS2 port).</description>
+
+  <maintainer email="davide.iafrate@duckietown.com">Davide Iafrate</maintainer>
+  <license>Duckietown License</license>
+
+  <depend>rclpy</depend>
+  <depend>duckietown_msgs</depend>
+  <depend>std_msgs</depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
+

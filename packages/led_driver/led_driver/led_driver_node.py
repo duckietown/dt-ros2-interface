@@ -6,6 +6,7 @@ from typing import Optional
 
 import rclpy
 from rclpy.node import Node
+from rclpy.executors import SingleThreadedExecutor
 from std_msgs.msg import ColorRGBA
 from duckietown_msgs.msg import LEDPattern
 
@@ -43,9 +44,10 @@ class LEDDriverNode(Node):
 
     """
 
-    def __init__(self):
+    def __init__(self, lights_name: str = "base"):
         super().__init__('leds_driver')
         self._robot_name = get_robot_name()
+        self._lights_name = lights_name
         # subscribers
         self.sub = self.create_subscription(LEDPattern, "led_pattern", self.led_cb, 1)
         # dtps publishers
@@ -53,7 +55,7 @@ class LEDDriverNode(Node):
         # event loop
         self._loop: Optional[AbstractEventLoop] = None
         # ---
-        self.get_logger().info("Initialized.")
+        self.get_logger().info("Initialized LED driver node.")
 
     def led_cb(self, msg):
         """
@@ -62,6 +64,7 @@ class LEDDriverNode(Node):
         Args:
             msg (LEDPattern): Message containing the LED pattern
         """
+
         if self._loop is None:
             return
         # make sure enough data is available
@@ -75,8 +78,8 @@ class LEDDriverNode(Node):
             ),
             front_left=self._rgba(msg.rgb_vals[0]),
             front_right=self._rgba(msg.rgb_vals[4]),
-            rear_left=self._rgba(msg.rgb_vals[1]),
-            rear_right=self._rgba(msg.rgb_vals[3]),
+            back_left=self._rgba(msg.rgb_vals[1]),
+            back_right=self._rgba(msg.rgb_vals[3]),
         ).to_rawdata()
         # schedule the message for publishing
         asyncio.run_coroutine_threadsafe(self._pattern.publish(raw), self._loop)
@@ -89,25 +92,62 @@ class LEDDriverNode(Node):
         try:
             # create switchboard context
             switchboard = (await context("switchboard")).navigate(self._robot_name)
-            # leds pattern queue
-            self._pattern = await (switchboard / "actuator" / "leds" / "rgba").until_ready()
+            # wait for the queues to be ready
+            self._pattern = await (switchboard / "actuator" / "lights" / self._lights_name / "pattern").until_ready()
             # ---
-            self._loop = asyncio.get_event_loop()
+            # self._loop is already set in spin() method
             await self.join()
         except Exception as e:
-            self.get_logger().error(f"Failed to navigate ToF context: {e}")
+            self.get_logger().error(f"Failed to navigate LED context: {e}")
 
     async def join(self):
         while rclpy.ok():
             await asyncio.sleep(1)
 
     def spin(self):
+        # Create and set up the asyncio event loop
+        self._loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self._loop)
+        
+        # Start the worker task
+        worker_task = self._loop.create_task(self.worker())
+        
+        # Initialize executor
+        executor = SingleThreadedExecutor()
+        executor.add_node(self)
+        
         try:
-            asyncio.run(self.worker())
-        except RuntimeError:
-            if rclpy.ok():
-                self.get_logger().error("An error occurred while running the event loop")
-                raise
+            # Run both ROS2 and asyncio in the same thread
+            while rclpy.ok():
+                # Process ROS2 callbacks
+                executor.spin_once(timeout_sec=0.01)
+                # Process asyncio tasks
+                if not worker_task.done():
+                    try:
+                        self._loop.run_until_complete(asyncio.sleep(0.01))
+                    except Exception as e:
+                        self.get_logger().error(f"Error in asyncio loop: {e}")
+                        break
+                else:
+                    # Worker task completed, check for exceptions
+                    try:
+                        worker_task.result()
+                    except Exception as e:
+                        self.get_logger().error(f"Worker task failed: {e}")
+                    break
+                    
+        except KeyboardInterrupt:
+            self.get_logger().info("Shutting down due to keyboard interrupt")
+        finally:
+            # Clean up
+            if not worker_task.done():
+                worker_task.cancel()
+                try:
+                    self._loop.run_until_complete(worker_task)
+                except asyncio.CancelledError:
+                    pass
+            executor.remove_node(self)
+            self._loop.close()
 
     def on_shutdown(self):
         if self._loop is not None:
@@ -118,7 +158,8 @@ class LEDDriverNode(Node):
 def main(args=None):
     rclpy.init(args=args)
     node = LEDDriverNode()
-    rclpy.spin(node)
+    # keep the node alive
+    node.spin()
     rclpy.shutdown()
 
 
