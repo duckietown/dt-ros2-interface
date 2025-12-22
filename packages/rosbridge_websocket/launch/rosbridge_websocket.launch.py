@@ -56,18 +56,6 @@ def generate_launch_description():
         description='Fragment timeout'
     )
     
-    delay_between_messages_arg = DeclareLaunchArgument(
-        'delay_between_messages',
-        default_value='0.0',
-        description='Delay between messages'
-    )
-    
-    max_message_size_arg = DeclareLaunchArgument(
-        'max_message_size',
-        default_value='0',
-        description='Maximum message size (0 for unlimited)'
-    )
-    
     unregister_timeout_arg = DeclareLaunchArgument(
         'unregister_timeout',
         default_value='10.0',
@@ -119,12 +107,7 @@ def generate_launch_description():
             'address': LaunchConfiguration('address'),
             'retry_startup_delay': 5.0,
             'fragment_timeout': 600,
-            'delay_between_messages': 0.0,
-            'max_message_size': 0,  # 0 means unlimited
             'unregister_timeout': 10.0,
-            'topics_glob': '*',
-            'services_glob': '*',
-            'params_glob': '*',
             'bson_only_mode': False,
         }]
     )
@@ -134,11 +117,6 @@ def generate_launch_description():
         executable='rosapi_node',
         name='rosapi',
         namespace=LaunchConfiguration('veh'),
-        parameters=[{
-            'topics_glob': '*',
-            'services_glob': '*',
-            'params_glob': '*',
-        }]
     )
 
     return LaunchDescription([
@@ -150,8 +128,6 @@ def generate_launch_description():
         keyfile_arg,
         retry_startup_delay_arg,
         fragment_timeout_arg,
-        delay_between_messages_arg,
-        max_message_size_arg,
         unregister_timeout_arg,
         authenticate_arg,
         topics_glob_arg,
