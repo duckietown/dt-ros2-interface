@@ -68,12 +68,6 @@ def generate_launch_description():
         description='Enable authentication'
     )
     
-    topics_glob_arg = DeclareLaunchArgument(
-        'topics_glob',
-        default_value='["*"]',
-        description='Topics glob pattern'
-    )
-    
     services_glob_arg = DeclareLaunchArgument(
         'services_glob',
         default_value='["*"]',
@@ -130,7 +124,6 @@ def generate_launch_description():
         fragment_timeout_arg,
         unregister_timeout_arg,
         authenticate_arg,
-        topics_glob_arg,
         services_glob_arg,
         params_glob_arg,
         bson_only_mode_arg,
