@@ -68,18 +68,6 @@ def generate_launch_description():
         description='Enable authentication'
     )
     
-    services_glob_arg = DeclareLaunchArgument(
-        'services_glob',
-        default_value='["*"]',
-        description='Services glob pattern'
-    )
-    
-    params_glob_arg = DeclareLaunchArgument(
-        'params_glob',
-        default_value='["*"]',
-        description='Parameters glob pattern'
-    )
-    
     bson_only_mode_arg = DeclareLaunchArgument(
         'bson_only_mode',
         default_value='false',
@@ -124,8 +112,6 @@ def generate_launch_description():
         fragment_timeout_arg,
         unregister_timeout_arg,
         authenticate_arg,
-        services_glob_arg,
-        params_glob_arg,
         bson_only_mode_arg,
         rosbridge_websocket_node,
         rosapi_node,
