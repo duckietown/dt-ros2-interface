@@ -12,6 +12,10 @@ ros-jazzy-rclpy
 ros-jazzy-std-msgs
 ros-jazzy-rosidl-default-generators
 ros-jazzy-tf-transformations
+# Pulls fastcdr to the latest candidate so the ABI stays in sync with
+# ros-jazzy-std-msgs (std-msgs 5.3.7+ has binary symbols that require
+# fastcdr 2.2.7+, but declares only an unversioned Depends on fastcdr).
+ros-jazzy-fastcdr
 
 # TODO: cv-bridge is not very efficient, replace it with turbo-jpeg
 ros-jazzy-cv-bridge
@@ -20,4 +24,30 @@ ros-jazzy-rosbridge-suite
 ros-jazzy-rosapi
 ros-jazzy-foxglove-bridge
 ros-jazzy-mavros
+
+# Raspberry Pi CSI camera support (libcamera 0.3+ built from source from the
+# Raspberry Pi fork -- Ubuntu Noble's libcamera 0.2 has a known prepareIsp
+# IPA-buffer bug with the OV5647 pipeline).
+# -- build deps --
+git
+meson
+ninja-build
+pkg-config
+python3-dev
+python3-jinja2
+python3-ply
+python3-yaml
+pybind11-dev
+libyaml-dev
+libssl-dev
+libgnutls28-dev
+libudev-dev
+libevent-dev
+libcap-dev
+libdw-dev
+libunwind-dev
+libboost-dev
+libjpeg-turbo8-dev
+# -- runtime utilities --
+v4l-utils
 

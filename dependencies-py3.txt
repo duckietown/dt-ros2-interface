@@ -17,3 +17,6 @@ colcon-common-extensions==0.3.0
 # these are required by colcon
 osrf-pycommon==2.0.2
 # lark<=1.1.8
+
+# Raspberry Pi camera Python API (requires libcamera 0.3+ built from source)
+picamera2
