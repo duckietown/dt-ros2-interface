@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>px4_calibration</name>
+  <version>0.0.1</version>
+  <description>PX4 calibration helpers for DD24 through MAVROS2 and MAVLink.</description>
+  <maintainer email="info@duckietown.com">Duckietown</maintainer>
+  <license>Duckietown License</license>
+
+  <depend>mavros_msgs</depend>
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>std_srvs</depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
