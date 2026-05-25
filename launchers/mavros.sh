@@ -13,7 +13,17 @@ source /environment.sh
 # setpoint_attitude plugin and sets setpoint_raw.thrust_scaling=1.0.
 # Without it, MAVROS uses its built-in defaults and the current
 # PoseStamped+thrust OFFBOARD control path is not consumed.
-FCU_URL=${FCU_URL:-"udp://:14540@"}
+#
+# Select the MAVLink endpoint based on the robot hardware:
+#   - virtual robots: PX4 SITL exposes MAVLink over UDP on port 14540
+#   - real robots:    the PX4 flight controller is connected over USB (CDC-ACM),
+#                     enumerating as /dev/ttyACM0 (baud is nominal for CDC-ACM)
+# An explicit FCU_URL environment variable always takes precedence.
+if [ "${ROBOT_HARDWARE}" == "virtual" ]; then
+  FCU_URL=${FCU_URL:-"udp://:14540@"}
+else
+  FCU_URL=${FCU_URL:-"serial:///dev/ttyACM0:57600"}
+fi
 MAVROS_CONFIG=${MAVROS_CONFIG:-"${DT_PROJECT_PATH}/assets/mavros/px4_config.yaml"}
 dt-exec ros2 run mavros mavros_node --ros-args \
     -p "fcu_url:=${FCU_URL}" \
