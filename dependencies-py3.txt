@@ -19,7 +19,7 @@ osrf-pycommon==2.0.2
 # lark<=1.1.8
 
 # Raspberry Pi camera Python API (requires libcamera 0.3+ built from source)
-picamera2
+picamera2==0.3.36
 
 # Manual PX4 calibration fallback
-pymavlink
+pymavlink==2.4.49
