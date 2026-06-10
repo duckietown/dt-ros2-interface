@@ -16,8 +16,8 @@ source /environment.sh
 FCU_URL=${FCU_URL:-"udp://:14540@"}
 MAVROS_CONFIG=${MAVROS_CONFIG:-"${DT_PROJECT_PATH}/assets/mavros/px4_config.yaml"}
 dt-exec ros2 run mavros mavros_node --ros-args \
-    -p fcu_url:=${FCU_URL} \
-    --params-file ${MAVROS_CONFIG}
+    -p "fcu_url:=${FCU_URL}" \
+    --params-file "${MAVROS_CONFIG}"
 
 # wait for app to end
 dt-launchfile-join
