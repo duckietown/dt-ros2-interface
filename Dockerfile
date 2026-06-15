@@ -171,6 +171,9 @@ RUN dt-install-launchers "${PROJECT_LAUNCHERS_PATH}"
 COPY ./assets/entrypoint.d "${PROJECT_PATH}/assets/entrypoint.d"
 COPY ./assets/environment.d "${PROJECT_PATH}/assets/environment.d"
 
+# mavros plugin configuration (loaded by launchers/mavros.sh)
+COPY ./assets/mavros "${PROJECT_PATH}/assets/mavros"
+
 # define default command
 CMD ["bash", "-c", "dt-launcher-${DT_LAUNCHER}"]
 
