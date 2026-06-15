@@ -1,16 +1,17 @@
 # MAVROS plugin parameter overrides for the Duckiedrone (PX4).
 #
 # Loaded by launchers/mavros.sh via `--params-file`. Without this, mavros runs
-# on built-in defaults and `setpoint_attitude.use_quaternion` is false, which
-# means the `/mavros/setpoint_attitude/attitude` (PoseStamped) topic is never
-# created — so attitude+thrust OFFBOARD control (the altitude PID) cannot work.
+# on built-in defaults. In that mode, `setpoint_attitude.use_quaternion` is
+# false, so the setpoint_attitude plugin consumes `cmd_vel` rather than the
+# `attitude` PoseStamped interface used by the current attitude+thrust
+# OFFBOARD controller.
 #
 # The `/**/` glob applies these to the mavros plugin component nodes
 # (e.g. /mavros/setpoint_attitude).
 
 /**/setpoint_attitude:
   ros__parameters:
-    use_quaternion: true        # expose /mavros/setpoint_attitude/attitude (PoseStamped)
+    use_quaternion: true        # consume PoseStamped attitude setpoints instead of cmd_vel
 
 /**/setpoint_raw:
   ros__parameters:
