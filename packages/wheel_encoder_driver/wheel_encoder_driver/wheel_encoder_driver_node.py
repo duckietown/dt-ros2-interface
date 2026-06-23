@@ -16,6 +16,9 @@ from duckietown_messages.utils.exceptions import DataDecodingError
 
 RESOLUTION: int = 135
 
+SPIN_TIMEOUT_SEC = 0.0  # Non-blocking ROS2 spin timeout to keep the asyncio loop free for dtps
+SPIN_PERIOD_SEC = 0.005  # Poll rate for ROS2 spin to maintain parameter service and shutdown responsiveness
+
 
 class WheelEncoderNode(ROS2Node):
 
@@ -74,9 +77,8 @@ class WheelEncoderNode(ROS2Node):
 
     async def join(self):
         while rclpy.ok():
-            # Spin the ROS2 node to handle callbacks and parameter services
-            rclpy.spin_once(self, timeout_sec=0.1)
-            await asyncio.sleep(0.1)
+            rclpy.spin_once(self, timeout_sec=SPIN_TIMEOUT_SEC)
+            await asyncio.sleep(SPIN_PERIOD_SEC)
 
     def spin(self):
         try:
