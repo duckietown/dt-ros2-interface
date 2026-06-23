@@ -15,7 +15,7 @@ MAX_RANGE = 99  # meters
 OUT_OF_RANGE = 999
 
 SPIN_TIMEOUT_SEC = 0.0  # Non-blocking ROS2 spin timeout to keep the asyncio loop free for dtps
-SPIN_PERIOD_SEC = 0.005  # Poll rate for ROS2 spin to maintain parameter service and shutdown responsiveness
+SPIN_PERIOD_SEC = 0.02  # Poll rate (50 Hz) for ROS2 spin to maintain parameter service and shutdown responsiveness
 
 
 class ToFNode(ROS2Node):
