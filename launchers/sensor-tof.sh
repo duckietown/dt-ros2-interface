@@ -8,13 +8,10 @@ dt-launchfile-init
 # YOUR CODE BELOW THIS LINE
 # ----------------------------------------------------------------------------
 
-# Set module's health.
-dt-set-module-healthy
-
-exec ros2 launch \
-  rosbridge_websocket rosbridge_websocket.launch.py \
-    port:=${WEBSOCKET_BRIDGE_PORT:-9001} \
-    veh:="$VEHICLE_NAME"
+exec ros2 run tof_driver tof_driver_node --ros-args \
+	-r "__node:=tof_${SENSOR_NAME}" \
+	-r "__ns:=/${VEHICLE_NAME}" \
+	-p "sensor_name:=${SENSOR_NAME}"
 
 # ----------------------------------------------------------------------------
 # YOUR CODE ABOVE THIS LINE

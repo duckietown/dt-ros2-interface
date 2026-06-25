@@ -8,13 +8,7 @@ dt-launchfile-init
 # YOUR CODE BELOW THIS LINE
 # ----------------------------------------------------------------------------
 
-# Set module's health.
-dt-set-module-healthy
-
-exec ros2 launch \
-  rosbridge_websocket rosbridge_websocket.launch.py \
-    port:=${WEBSOCKET_BRIDGE_PORT:-9001} \
-    veh:="$VEHICLE_NAME"
+exec ros2 launch duckiematrix_interface duckiematrix_interface.launch.py
 
 # ----------------------------------------------------------------------------
 # YOUR CODE ABOVE THIS LINE

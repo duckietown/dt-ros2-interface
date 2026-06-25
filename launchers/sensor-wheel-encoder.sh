@@ -8,13 +8,10 @@ dt-launchfile-init
 # YOUR CODE BELOW THIS LINE
 # ----------------------------------------------------------------------------
 
-# Set module's health.
-dt-set-module-healthy
-
-exec ros2 launch \
-  rosbridge_websocket rosbridge_websocket.launch.py \
-    port:=${WEBSOCKET_BRIDGE_PORT:-9001} \
-    veh:="$VEHICLE_NAME"
+exec ros2 run wheel_encoder_driver wheel_encoder_driver_node --ros-args \
+	-r "__node:=wheel_encoder_${WHEEL}" \
+	-r "__ns:=/${VEHICLE_NAME}" \
+	-p "wheel:=${WHEEL}"
 
 # ----------------------------------------------------------------------------
 # YOUR CODE ABOVE THIS LINE

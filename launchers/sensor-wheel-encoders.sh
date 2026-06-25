@@ -1,9 +1,18 @@
 #!/bin/bash
+
 source /environment.sh
-dt-launchfile-init --quiet
 
-# Launch both wheel encoder nodes using launch files
-dt-exec ros2 launch wheel_encoder_driver wheel_encoder_driver.launch.py robot_name:=$VEHICLE_NAME wheel:=left --ros-args -r __node:=wheel_encoder_left &
-dt-exec ros2 launch wheel_encoder_driver wheel_encoder_driver.launch.py robot_name:=$VEHICLE_NAME wheel:=right --ros-args -r __node:=wheel_encoder_right
+# Initialize launch file.
+dt-launchfile-init
 
-dt-launchfile-join --quiet
+# YOUR CODE BELOW THIS LINE
+# ----------------------------------------------------------------------------
+
+WHEEL="left" dt-launcher-sensor-wheel-encoder &
+WHEEL="right" dt-launcher-sensor-wheel-encoder &
+
+# ----------------------------------------------------------------------------
+# YOUR CODE ABOVE THIS LINE
+
+# Wait for app to end.
+dt-launchfile-join
