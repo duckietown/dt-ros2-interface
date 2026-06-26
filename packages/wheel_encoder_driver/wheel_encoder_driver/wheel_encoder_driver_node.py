@@ -1,7 +1,9 @@
 import asyncio
 from math import pi
+from threading import Thread
 
 import rclpy
+from rclpy.executors import SingleThreadedExecutor
 from rclpy.node import Node as ROS2Node
 import tf_transformations
 from duckietown_msgs.msg import WheelEncoderStamped
@@ -15,9 +17,6 @@ from duckietown_messages.standard.integer import Integer
 from duckietown_messages.utils.exceptions import DataDecodingError
 
 RESOLUTION: int = 135
-
-SPIN_TIMEOUT_SEC: float = 0.0  # Non-blocking ROS2 spin timeout to keep the asyncio loop free for dtps
-SPIN_PERIOD_SEC: float = 0.02  # Poll rate (50 Hz) for ROS2 spin to maintain parameter service and shutdown responsiveness
 
 
 class WheelEncoderNode(ROS2Node):
@@ -77,23 +76,39 @@ class WheelEncoderNode(ROS2Node):
 
     async def join(self):
         while rclpy.ok():
-            rclpy.spin_once(self, timeout_sec=SPIN_TIMEOUT_SEC)
-            await asyncio.sleep(SPIN_PERIOD_SEC)
+            await asyncio.sleep(1)
 
     def spin(self):
+        executor = SingleThreadedExecutor()
+        executor.add_node(self)
+        spin_thread = Thread(target=executor.spin, daemon=True)
+        spin_thread.start()
+
         try:
             asyncio.run(self.worker())
         except RuntimeError:
             if rclpy.ok():
                 self.get_logger().error("An error occurred while running the event loop")
                 raise
+        finally:
+            shutdown_ok = executor.shutdown(1)
+            if not shutdown_ok:
+                self.get_logger().warning("ROS2 executor did not shut down within 1 second.")
+            spin_thread.join(timeout=1)
+            if spin_thread.is_alive():
+                self.get_logger().warning("ROS2 executor thread is still running; skipping node destruction.")
+            else:
+                self.destroy_node()
 
 
 def main(args=None):
     rclpy.init(args=args)
     wheel_encoder_node = WheelEncoderNode()
-    wheel_encoder_node.spin()
-    rclpy.shutdown()
+    try:
+        wheel_encoder_node.spin()
+    finally:
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == "__main__":

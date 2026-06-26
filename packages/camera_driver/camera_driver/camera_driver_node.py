@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 
 import asyncio
+from threading import Thread
 from typing import Optional
+
 import rclpy
+from rclpy.executors import SingleThreadedExecutor
 from rclpy.node import Node as ROS2Node
 from sensor_msgs.msg import CompressedImage as ROS2CompressedImage, CameraInfo as ROS2CameraInfo
 from dt_node_utils import NodeType
@@ -15,9 +18,6 @@ from duckietown_messages.calibrations.camera_intrinsic import CameraIntrinsicCal
 from duckietown_messages.sensors.camera import Camera
 from duckietown_messages.sensors.compressed_image import CompressedImage
 from duckietown_messages.utils.exceptions import DataDecodingError
-
-SPIN_TIMEOUT_SEC: float = 0.0  # Non-blocking ROS2 spin timeout to keep the asyncio loop free for dtps
-SPIN_PERIOD_SEC: float = 0.02  # Poll rate (50 Hz) for ROS2 spin to maintain parameter service and shutdown responsiveness
 
 
 class CameraNode(Node):
@@ -127,26 +127,40 @@ class CameraNode(Node):
         await self.join()
 
     def spin(self):
+        executor = SingleThreadedExecutor()
+        executor.add_node(self._ros2)
+        spin_thread = Thread(target=executor.spin, daemon=True)
+        spin_thread.start()
+
         try:
             asyncio.run(self.worker())
         except RuntimeError:
             if not self.is_shutdown:
                 self.logerr("An error occurred while running the event loop")
                 raise
+        finally:
+            shutdown_ok = executor.shutdown(1)
+            if not shutdown_ok:
+                self.logwarn("ROS2 executor did not shut down within 1 second.")
+            spin_thread.join(timeout=1)
+            if spin_thread.is_alive():
+                self.logwarn("ROS2 executor thread is still running; skipping node destruction.")
+            else:
+                self._ros2.destroy_node()
 
     async def join(self):
-        while not self.is_shutdown:
-            rclpy.spin_once(self._ros2, timeout_sec=SPIN_TIMEOUT_SEC)
-            await asyncio.sleep(SPIN_PERIOD_SEC)
+        while rclpy.ok():
+            await asyncio.sleep(1)
 
 
 def main(args=None):
     rclpy.init(args=args)
     camera_node = CameraNode()
-    camera_node.spin()
-    # camera_node.worker()
-    # rclpy.spin(camera_node)
-    # rclpy.shutdown()
+    try:
+        camera_node.spin()
+    finally:
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == "__main__":
