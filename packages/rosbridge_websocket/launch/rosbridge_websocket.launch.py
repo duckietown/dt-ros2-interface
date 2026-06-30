@@ -76,8 +76,8 @@ def generate_launch_description():
 
     # Create nodes
     rosbridge_websocket_node = Node(
-        package='rosbridge_server',
-        executable='rosbridge_websocket',
+        package='rosbridge_websocket',
+        executable='rosbridge_websocket_compat.py',
         name='rosbridge_websocket',
         namespace=LaunchConfiguration('veh'),
         output='screen',
