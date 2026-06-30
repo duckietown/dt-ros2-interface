@@ -23,15 +23,15 @@ from duckietown_messages.utils.exceptions import DataDecodingError
 class CameraNode(Node):
     def __init__(self, camera_name: str = "front_center"):
         super(CameraNode, self).__init__(
-            name="camera",
+            name="camera_node",
             kind=NodeType.DRIVER,
             description="Reads a stream of images from a camera and publishes the frames over ROS",
         )
         self._robot_name = get_robot_name()
         self._camera_name = camera_name
-        self._ros2 = ROS2Node("camera_driver_node")
-        self.pub_img = self._ros2.create_publisher(ROS2CompressedImage, "image/compressed", 1)
-        self.pub_camera_info = self._ros2.create_publisher(ROS2CameraInfo, "camera_info", 1)
+        self._ros2 = ROS2Node("camera_node")
+        self.pub_img = self._ros2.create_publisher(ROS2CompressedImage, "~/image/compressed", 1)
+        self.pub_camera_info = self._ros2.create_publisher(ROS2CameraInfo, "~/camera_info", 1)
         self._has_published = False
         
         # Store camera info and intrinsics

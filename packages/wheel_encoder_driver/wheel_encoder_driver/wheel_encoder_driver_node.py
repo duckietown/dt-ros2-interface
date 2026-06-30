@@ -23,12 +23,12 @@ class WheelEncoderNode(ROS2Node):
 
     def __init__(self):
         self._robot_name = get_robot_name()
-        super().__init__('wheel_encoder_node')
+        super().__init__('wheel_encoder_driver_node')
         # get parameters
         self.declare_parameter("wheel", "left")  # Default value
         self._wheel = self.get_parameter("wheel").get_parameter_value().string_value
         # publishers
-        self.pub_ticks = self.create_publisher(WheelEncoderStamped, "tick", 1)
+        self.pub_ticks = self.create_publisher(WheelEncoderStamped, "~/tick", 1)
         # tf broadcaster for wheel frame
         self.tf_broadcaster = TransformBroadcaster(self)
         # ---

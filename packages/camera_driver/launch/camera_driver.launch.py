@@ -38,7 +38,7 @@ def generate_launch_description():
     camera_driver_node = Node(
         package='camera_driver',
         executable='camera_driver_node',
-        name='camera_driver_node',
+        name='camera_node',
         namespace=LaunchConfiguration('robot_name'),
         parameters=[{
             'camera_name': LaunchConfiguration('camera_name'),

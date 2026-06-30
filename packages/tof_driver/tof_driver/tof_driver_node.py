@@ -21,14 +21,14 @@ OUT_OF_RANGE = 999
 class ToFNode(ROS2Node):
     def __init__(self):
         self._robot_name = get_robot_name()
-        super().__init__('tof_node', namespace=f"/{self._robot_name}")
+        super().__init__('tof_driver_node', namespace=f"/{self._robot_name}")
         # arguments
         self.declare_parameter("sensor_name", "front_center")
         self._sensor_name = self.get_parameter("sensor_name").get_parameter_value().string_value
         # create publisher
         self._pub = self.create_publisher(
             ROSRange,
-            "range",
+            "~/range",
             1
         )
         self.get_logger().info(f"Initialized for {self._sensor_name} sensor.")

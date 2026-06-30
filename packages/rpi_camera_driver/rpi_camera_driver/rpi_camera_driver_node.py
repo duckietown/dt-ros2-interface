@@ -2,8 +2,9 @@
 """ROS 2 driver for the Raspberry Pi CSI camera.
 
 Uses picamera2 (libcamera) to capture frames, JPEG-encodes them with OpenCV,
-and publishes `<ns>/image/compressed` (sensor_msgs/CompressedImage) plus
-`<ns>/camera_info` (sensor_msgs/CameraInfo) at the requested framerate.
+and publishes `<ns>/camera_node/image/compressed` (sensor_msgs/CompressedImage)
+plus `<ns>/camera_node/camera_info` (sensor_msgs/CameraInfo) at the requested
+framerate.
 
 Falls back to /dev/video0 via OpenCV + V4L2 when picamera2 is unavailable or
 fails to open the sensor.
@@ -28,7 +29,7 @@ class RpiCameraDriverNode(Node):
     VIDEO_DEVICE = "/dev/video0"
 
     def __init__(self):
-        super().__init__("rpi_camera_driver_node")
+        super().__init__("camera_node")
 
         self.declare_parameter("camera_name", "front_center")
         self.declare_parameter("frame_id", "camera_color_optical_frame")
@@ -50,8 +51,8 @@ class RpiCameraDriverNode(Node):
         self.exposure_mode = str(self.get_parameter("exposure_mode").value)
         self.calibration_file = str(self.get_parameter("calibration_file").value)
 
-        self.pub_image = self.create_publisher(CompressedImage, "image/compressed", 1)
-        self.pub_camera_info = self.create_publisher(CameraInfo, "camera_info", 1)
+        self.pub_image = self.create_publisher(CompressedImage, "~/image/compressed", 1)
+        self.pub_camera_info = self.create_publisher(CameraInfo, "~/camera_info", 1)
 
         self._camera: Optional[Union["Picamera2", cv2.VideoCapture]] = None
         self._use_picamera2 = False
@@ -67,7 +68,7 @@ class RpiCameraDriverNode(Node):
         self._worker = threading.Thread(target=self._capture_loop, daemon=True)
         self._worker.start()
         self.get_logger().info(
-            f"rpi_camera_driver_node started: {self.width}x{self.height} @ "
+            f"camera_node started: {self.width}x{self.height} @ "
             f"{self.framerate:.1f} fps, rotation={self.rotation}, "
             f"backend={'picamera2' if self._use_picamera2 else 'v4l2'}"
         )

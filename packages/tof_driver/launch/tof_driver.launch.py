@@ -3,7 +3,7 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, TextSubstitution
 
 
 def generate_launch_description():
@@ -38,7 +38,7 @@ def generate_launch_description():
     tof_driver_node = Node(
         package='tof_driver',
         executable='tof_driver_node',
-        name='tof_driver_node',
+        name=[LaunchConfiguration('sensor_name'), TextSubstitution(text='_tof_driver_node')],
         namespace=LaunchConfiguration('robot_name'),
         parameters=[{
             'sensor_name': LaunchConfiguration('sensor_name'),

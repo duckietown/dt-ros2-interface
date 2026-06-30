@@ -3,7 +3,7 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, TextSubstitution
 
 
 def generate_launch_description():
@@ -38,7 +38,7 @@ def generate_launch_description():
     wheel_encoder_driver_node = Node(
         package='wheel_encoder_driver',
         executable='wheel_encoder_driver_node',
-        name='wheel_encoder_driver_node',
+        name=[LaunchConfiguration('wheel'), TextSubstitution(text='_wheel_encoder_driver_node')],
         namespace=LaunchConfiguration('robot_name'),
         parameters=[{
             'wheel': LaunchConfiguration('wheel'),

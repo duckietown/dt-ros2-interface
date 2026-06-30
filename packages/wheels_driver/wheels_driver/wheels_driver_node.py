@@ -36,10 +36,10 @@ class WheelsDriverNode(ROS2Node):
 
         # QoS profile for topics
         qos_profile = QoSProfile(depth=10)
-        self.pub_wheels_cmd = self.create_publisher(WheelsCmdStamped, 'wheels_cmd_executed', qos_profile)
-        self.pub_autopilot = self.create_publisher(Bool, 'autopilot', qos_profile)
-        self.create_subscription(WheelsCmdStamped, 'wheels_cmd', self.cmds_cb, qos_profile)
-        self.create_subscription(Bool, 'emergency_stop', self.estop_cb, qos_profile)
+        self.pub_wheels_cmd = self.create_publisher(WheelsCmdStamped, '~/wheels_cmd_executed', qos_profile)
+        self.pub_autopilot = self.create_publisher(Bool, '~/autopilot', qos_profile)
+        self.create_subscription(WheelsCmdStamped, '~/wheels_cmd', self.cmds_cb, qos_profile)
+        self.create_subscription(Bool, '~/emergency_stop', self.estop_cb, qos_profile)
 
         # DTPS context variables
         self._pwm: Optional[DTPSContext] = None
