@@ -25,7 +25,7 @@ def generate_launch_description():
     node = Node(
         package="rpi_camera_driver",
         executable="rpi_camera_driver_node",
-        name="rpi_camera_driver_node",
+        name="camera_node",
         namespace=LaunchConfiguration("robot_name"),
         parameters=[{
             "camera_name": LaunchConfiguration("camera_name"),

@@ -49,7 +49,7 @@ class LEDDriverNode(Node):
         self._robot_name = get_robot_name()
         self._lights_name = lights_name
         # subscribers
-        self.sub = self.create_subscription(LEDPattern, "led_pattern", self.led_cb, 1)
+        self.sub = self.create_subscription(LEDPattern, "~/led_pattern", self.led_cb, 1)
         # dtps publishers
         self._pattern: Optional[DTPSContext] = None
         # event loop
