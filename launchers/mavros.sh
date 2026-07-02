@@ -24,9 +24,19 @@ if [ "${ROBOT_HARDWARE}" == "virtual" ]; then
 else
   FCU_URL=${FCU_URL:-"serial:///dev/ttyACM0:57600"}
 fi
+
+# GCS bridge: MAVROS forwards the FC MAVLink stream to a ground control station
+# (e.g. QGroundControl) over this endpoint. On real hardware MAVROS owns the FC
+# serial port, so this is the supported way to reach the FC from QGC without a
+# second process contending for /dev/ttyACM0. QGC connects as a TCP client to
+# <robot-ip>:5760 (container runs with network_mode: host). An explicit GCS_URL
+# env variable always takes precedence.
+GCS_URL=${GCS_URL:-"tcp-l://:5760"}
+
 MAVROS_CONFIG=${MAVROS_CONFIG:-"${DT_PROJECT_PATH}/assets/mavros/px4_config.yaml"}
 dt-exec ros2 run mavros mavros_node --ros-args \
     -p "fcu_url:=${FCU_URL}" \
+    -p "gcs_url:=${GCS_URL}" \
     --params-file "${MAVROS_CONFIG}"
 
 # wait for app to end
