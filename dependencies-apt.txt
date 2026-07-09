@@ -24,30 +24,3 @@ ros-jazzy-rosbridge-suite
 ros-jazzy-rosapi
 ros-jazzy-foxglove-bridge
 ros-jazzy-mavros
-
-# Raspberry Pi CSI camera support (libcamera 0.3+ built from source from the
-# Raspberry Pi fork -- Ubuntu Noble's libcamera 0.2 has a known prepareIsp
-# IPA-buffer bug with the OV5647 pipeline).
-# -- build deps --
-git
-meson
-ninja-build
-pkg-config
-python3-dev
-python3-jinja2
-python3-ply
-python3-yaml
-pybind11-dev
-libyaml-dev
-libssl-dev
-libgnutls28-dev
-libudev-dev
-libevent-dev
-libcap-dev
-libdw-dev
-libunwind-dev
-libboost-dev
-libjpeg-turbo8-dev
-# -- runtime utilities --
-v4l-utils
-
