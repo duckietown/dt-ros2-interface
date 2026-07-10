@@ -9,20 +9,15 @@ source /environment.sh
 # NOTE: Use `dt-exec COMMAND` to run the main process (blocking process)
 
 # Launch MAVROS
-# The params file enables quaternion attitude setpoints for the MAVROS
-# setpoint_attitude plugin and sets setpoint_raw.thrust_scaling=1.0.
-# Without it, MAVROS uses its built-in defaults and the current
-# PoseStamped+thrust OFFBOARD control path is not consumed.
 #
-# Select the MAVLink endpoint based on the robot hardware:
-#   - virtual robots: PX4 SITL exposes MAVLink over UDP on port 14540
-#   - real robots:    the PX4 flight controller is connected over USB (CDC-ACM),
-#                     enumerating as /dev/ttyACM0 (baud is nominal for CDC-ACM)
+# Select the MAVLink endpoint based on robot hardware:
+#   - virtual robots: connect over UDP port 14540
+#   - real robots:    connect over serial /dev/ttyACM0 with 921600 baud (recommended by PX4)
 # An explicit FCU_URL environment variable always takes precedence.
 if [ "${ROBOT_HARDWARE}" == "virtual" ]; then
   FCU_URL=${FCU_URL:-"udp://:14540@"}
 else
-  FCU_URL=${FCU_URL:-"serial:///dev/ttyACM0:57600"}
+  FCU_URL=${FCU_URL:-"serial:///dev/ttyACM0:921600"}
 fi
 MAVROS_CONFIG=${MAVROS_CONFIG:-"${DT_PROJECT_PATH}/assets/mavros/px4_config.yaml"}
 dt-exec ros2 run mavros mavros_node --ros-args \

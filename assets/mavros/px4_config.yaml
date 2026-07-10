@@ -1,10 +1,6 @@
 # MAVROS plugin parameter overrides for the Duckiedrone (PX4).
 #
-# Loaded by launchers/mavros.sh via `--params-file`. Without this, mavros runs
-# on built-in defaults. In that mode, `setpoint_attitude.use_quaternion` is
-# false, so the setpoint_attitude plugin consumes `cmd_vel` rather than the
-# `attitude` PoseStamped interface used by the current attitude+thrust
-# OFFBOARD controller.
+# Loaded by launchers/mavros.sh via `--params-file`.
 #
 # The `/**/` glob applies these to the mavros plugin component nodes
 # (e.g. /mavros/setpoint_attitude).
@@ -16,3 +12,9 @@
 /**/setpoint_raw:
   ros__parameters:
     thrust_scaling: 1.0         # PX4 expects normalized [0,1] thrust (no scaling)
+
+# Disable MAVROS plugins we do not use on this airframe.
+# By default they cram up the serial bus
+/mavros:
+  ros__parameters:
+    plugin_denylist: ["geofence", "rallypoint"]
