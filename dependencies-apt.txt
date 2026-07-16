@@ -24,3 +24,4 @@ ros-jazzy-rosbridge-suite
 ros-jazzy-rosapi
 ros-jazzy-foxglove-bridge
 ros-jazzy-mavros
+ros-jazzy-mavros-extras

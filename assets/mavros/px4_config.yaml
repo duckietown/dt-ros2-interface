@@ -13,8 +13,41 @@
   ros__parameters:
     thrust_scaling: 1.0         # PX4 expects normalized [0,1] thrust (no scaling)
 
-# Disable MAVROS plugins we do not use on this airframe.
-# By default they cram up the serial bus
+# Send the bottom ToF reading to the FC as a height source (from mavros_extras).
+/**/distance_sensor:
+  ros__parameters:
+    config: |
+      bottom_tof:
+        subscriber: true          # we send data to the FC, not read from it
+        id: 0
+        orientation: PITCH_270    # sensor faces straight down
+        horizontal_fov_ratio: 1.0
+        vertical_fov_ratio: 1.0
+
+# Only load the plugins we actually use, so mavros_extras doesn't flood the serial link.
 /mavros:
   ros__parameters:
-    plugin_denylist: ["geofence", "rallypoint"]
+    plugin_allowlist:
+      - actuator_control
+      - altitude
+      - command
+      - ftp
+      - global_position
+      - home_position
+      - imu
+      - local_position
+      - manual_control
+      - nav_controller_output
+      - param
+      - rc_io
+      - setpoint_accel
+      - setpoint_attitude
+      - setpoint_position
+      - setpoint_raw
+      - setpoint_trajectory
+      - setpoint_velocity
+      - sys_status
+      - sys_time
+      - waypoint
+      - wind_estimation
+      - distance_sensor

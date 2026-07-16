@@ -20,8 +20,27 @@ else
   FCU_URL=${FCU_URL:-"serial:///dev/ttyACM0:921600"}
 fi
 MAVROS_CONFIG=${MAVROS_CONFIG:-"${DT_PROJECT_PATH}/assets/mavros/px4_config.yaml"}
+# Bridge the real ToF topic onto what the distance_sensor plugin expects (see px4_config.yaml).
+TOF_RANGE_TOPIC=${TOF_RANGE_TOPIC:-"/${HOSTNAME}/bottom_tof_driver_node/range"}
+
+# PX4 echoes our ToF data back out, which spams a harmless error in the mavros log.
+# Tell it to stop (MAV_CMD 511). This doesn't persist on the FC, so redo it every launch,
+# once the FC link is actually up (no fixed delay — poll instead of guessing).
+(
+  for _ in $(seq 1 30); do
+    grep -q "connected: true" <(ros2 topic echo /mavros/state --once 2>/dev/null) && break
+    sleep 2
+  done
+  for _ in 1 2 3 4 5 6; do
+    ros2 service call /mavros/cmd/command mavros_msgs/srv/CommandLong \
+      "{command: 511, param1: 132.0, param2: -1.0}" >/dev/null 2>&1 && break
+    sleep 5
+  done
+) &
+
 dt-exec ros2 run mavros mavros_node --ros-args \
     -p "fcu_url:=${FCU_URL}" \
+    -r "/mavros/bottom_tof:=${TOF_RANGE_TOPIC}" \
     --params-file "${MAVROS_CONFIG}"
 
 # wait for app to end
