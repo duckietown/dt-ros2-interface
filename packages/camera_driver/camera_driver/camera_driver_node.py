@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import asyncio
+import os
 from threading import Thread
 from typing import Optional
 
@@ -13,7 +14,6 @@ from dt_node_utils.node import Node
 from dt_robot_utils import get_robot_name
 from dtps import context, DTPSContext, ContextConfig
 from dtps_http import RawData
-
 from duckietown_messages.calibrations.camera_intrinsic import CameraIntrinsicCalibration
 from duckietown_messages.sensors.camera import Camera
 from duckietown_messages.sensors.compressed_image import CompressedImage
@@ -33,12 +33,83 @@ class CameraNode(Node):
         self.pub_img = self._ros2.create_publisher(ROS2CompressedImage, "~/image/compressed", 1)
         self.pub_camera_info = self._ros2.create_publisher(ROS2CameraInfo, "~/camera_info", 1)
         self._has_published = False
+        self._camera_shm_path = os.environ.get("DT_CAMERA_SHM_IN_PATH", "").strip()
+        self._shm_topic_paths = {
+            "jpeg": self._camera_shm_path,
+            "info": self._topic_shm_path(self._camera_shm_path, ".info"),
+            "parameters": self._topic_shm_path(
+                self._camera_shm_path,
+                ".parameters",
+            ),
+        }
+        topic_shm_only_variables = {
+            "jpeg": "DT_CAMERA_SHM_ONLY_JPEG",
+            "info": "DT_CAMERA_SHM_ONLY_INFO",
+            "parameters": "DT_CAMERA_SHM_ONLY_PARAMETERS",
+        }
+        self._shm_topic_only = {}
+        for topic_name, shm_path in self._shm_topic_paths.items():
+            shm_only_variable = topic_shm_only_variables[topic_name]
+            shm_only_requested = self._read_boolean_environment(
+                shm_only_variable,
+                False,
+            )
+            shm_is_enabled = shm_path != ""
+            if shm_only_requested and not shm_is_enabled:
+                self.logwarn(
+                    f"Ignoring {shm_only_variable}=1 because "
+                    "DT_CAMERA_SHM_IN_PATH is not configured."
+                )
+            self._shm_topic_only[topic_name] = shm_is_enabled and shm_only_requested
+        self._topic_handlers = {
+            "jpeg": self.publish,
+            "info": self.save_camera_info,
+            "parameters": self.save_camera_intrinsics,
+        }
         
         # Store camera info and intrinsics
         self.camera_info: Optional[Camera] = None
         self.camera_intrinsics: Optional[CameraIntrinsicCalibration] = None
         
         self.loginfo("Initialized.")
+
+    def _read_boolean_environment(self, variable_name: str, default: bool) -> bool:
+        """Read a ``0`` or ``1`` transport option and warn for invalid values."""
+        default_value = "1" if default else "0"
+        variable_value = os.environ.get(variable_name, default_value)
+        variable_value = variable_value.strip()
+        if variable_value not in ("0", "1"):
+            self.logwarn(
+                f"{variable_name} must be '0' or '1'; using '{default_value}'."
+            )
+            return default
+        return variable_value == "1"
+
+    @staticmethod
+    def _topic_shm_path(base_path: str, suffix: str) -> str:
+        """Derive a topic channel path from the compatible JPEG base path."""
+        if not base_path:
+            return ""
+        return base_path + suffix
+
+    def _source_timestamp_to_ros_stamp(self, timestamp: Optional[float]):
+        """Preserve the source camera timestamp in an outgoing ROS header."""
+        if timestamp is None:
+            return self._ros2.get_clock().now().to_msg()
+        try:
+            timestamp_seconds = float(timestamp)
+        except (TypeError, ValueError):
+            self.logwarn("Camera image has an invalid source timestamp; using ROS publish time.")
+            return self._ros2.get_clock().now().to_msg()
+        seconds = int(timestamp_seconds)
+        nanoseconds = int(round((timestamp_seconds - seconds) * 1_000_000_000))
+        if nanoseconds >= 1_000_000_000:
+            seconds += 1
+            nanoseconds -= 1_000_000_000
+        stamp = self._ros2.get_clock().now().to_msg()
+        stamp.sec = seconds
+        stamp.nanosec = nanoseconds
+        return stamp
 
     async def publish(self, data: RawData):
         try:
@@ -48,7 +119,9 @@ class CameraNode(Node):
             return
         # create CompressedImage message
         msg = ROS2CompressedImage()
-        msg.header.stamp = self._ros2.get_clock().now().to_msg()
+        msg.header.stamp = self._source_timestamp_to_ros_stamp(
+            jpeg.header.timestamp,
+        )
         # msg.header.frame_id = jpeg.header.frame # TODO: restore this
         msg.header.frame_id = "camera_color_optical_frame"
         msg.format = jpeg.format
@@ -101,7 +174,7 @@ class CameraNode(Node):
 
     async def save_camera_intrinsics(self, rdata: RawData):
         try:
-            self.camera_intrinsics: CameraIntrinsicCalibration = CameraIntrinsicCalibration.from_rawdata(rdata)
+            self.camera_intrinsics = CameraIntrinsicCalibration.from_rawdata(rdata)
         except DataDecodingError as e:
             self.logerr(f"Failed to decode an incoming message: {e.message}")
             return
@@ -110,22 +183,31 @@ class CameraNode(Node):
         switchboard = (await context("switchboard")).navigate(self._robot_name)
         # TODO: the camera name should be passed in as a CLI argument
         camera: DTPSContext = switchboard / "sensor" / "camera" / self._camera_name
-        jpeg: DTPSContext = await (camera / "jpeg").until_ready()
-        info: DTPSContext = await (camera / "info").until_ready()
-        parameters: DTPSContext = await (camera / "parameters").until_ready()
+        subscriptions = []
+        try:
+            for topic_name, shm_path in self._shm_topic_paths.items():
+                shm_only = self._shm_topic_only[topic_name]
+                topic_context = camera / topic_name
+                if shm_only:
+                    self.loginfo(
+                        f"Using camera {topic_name} SHM input at '{shm_path}'."
+                    )
+                else:
+                    topic_context = await topic_context.until_ready()
+                    topic_context = topic_context.configure(
+                        ContextConfig(patient=True)
+                    )
+                subscription = await topic_context.subscribe(
+                    self._topic_handlers[topic_name],
+                    shm_path=shm_path or None,
+                    shm_only=shm_only,
+                )
+                subscriptions.append(subscription)
+            await self.join()
+        finally:
+            for subscription in subscriptions:
+                await subscription.unsubscribe()
         
-        # Enable dynamic reconnection to the topics
-        jpeg = jpeg.configure(ContextConfig(patient=True))
-        parameters = parameters.configure(ContextConfig(patient=True))
-        info = info.configure(ContextConfig(patient=True))
-        
-        # Subscribe to camera info and parameters first to get initial data
-        await info.subscribe(self.save_camera_info)
-        await parameters.subscribe(self.save_camera_intrinsics)
-        await jpeg.subscribe(self.publish)
-        
-        await self.join()
-
     def spin(self):
         executor = SingleThreadedExecutor()
         executor.add_node(self._ros2)
