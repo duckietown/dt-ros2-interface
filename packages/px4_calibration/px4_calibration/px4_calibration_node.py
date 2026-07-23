@@ -23,9 +23,12 @@ class PX4CalibrationNode(Node):
         self.declare_parameter("command_service", "/mavros/cmd/command")
         self.declare_parameter("status_text_topic", "/mavros/statustext/recv")
         self.declare_parameter("gyro_timeout_sec", 45.0)
-        # Assume gyro success this long after an accepted command if no STATUSTEXT arrives
-        # (PX4 >=1.15 reports cal over events, not STATUSTEXT). Gyro cal is quick.
+        # Assume success this long after an accepted command if no STATUSTEXT arrives
+        # (PX4 >=1.15 reports cal over events, not STATUSTEXT). Both cals are quick.
         self.declare_parameter("gyro_statustext_grace_sec", 5.0)
+        # Level-horizon cal: one-shot board-level trim (param5=2), also non-interactive.
+        self.declare_parameter("level_timeout_sec", 45.0)
+        self.declare_parameter("level_statustext_grace_sec", 5.0)
 
         self._callback_group = ReentrantCallbackGroup()
         self._command_client = self.create_client(
@@ -49,6 +52,12 @@ class PX4CalibrationNode(Node):
             Trigger,
             "/px4_calibration/calibrate_gyro",
             self._calibrate_gyro_cb,
+            callback_group=self._callback_group,
+        )
+        self.create_service(
+            Trigger,
+            "/px4_calibration/calibrate_level",
+            self._calibrate_level_cb,
             callback_group=self._callback_group,
         )
 
@@ -76,6 +85,18 @@ class PX4CalibrationNode(Node):
             param5=0.0,
             statustext_grace_sec=float(
                 self.get_parameter("gyro_statustext_grace_sec").value
+            ),
+        )
+
+    def _calibrate_level_cb(self, _request, response):
+        return self._run_calibration(
+            response=response,
+            name="level",
+            timeout_sec=float(self.get_parameter("level_timeout_sec").value),
+            param1=0.0,
+            param5=2.0,
+            statustext_grace_sec=float(
+                self.get_parameter("level_statustext_grace_sec").value
             ),
         )
 
