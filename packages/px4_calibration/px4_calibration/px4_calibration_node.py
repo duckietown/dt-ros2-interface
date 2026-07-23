@@ -23,7 +23,6 @@ class PX4CalibrationNode(Node):
         self.declare_parameter("command_service", "/mavros/cmd/command")
         self.declare_parameter("status_text_topic", "/mavros/statustext/recv")
         self.declare_parameter("gyro_timeout_sec", 45.0)
-        self.declare_parameter("accel_timeout_sec", 180.0)
         # Assume gyro success this long after an accepted command if no STATUSTEXT arrives
         # (PX4 >=1.15 reports cal over events, not STATUSTEXT). Gyro cal is quick.
         self.declare_parameter("gyro_statustext_grace_sec", 5.0)
@@ -52,12 +51,6 @@ class PX4CalibrationNode(Node):
             self._calibrate_gyro_cb,
             callback_group=self._callback_group,
         )
-        self.create_service(
-            Trigger,
-            "/px4_calibration/calibrate_accel",
-            self._calibrate_accel_cb,
-            callback_group=self._callback_group,
-        )
 
         self.get_logger().info("PX4 calibration services ready.")
 
@@ -84,18 +77,6 @@ class PX4CalibrationNode(Node):
             statustext_grace_sec=float(
                 self.get_parameter("gyro_statustext_grace_sec").value
             ),
-        )
-
-    def _calibrate_accel_cb(self, _request, response):
-        # No grace fallback: accel cal is interactive (6 orientations) and can't be
-        # confirmed without the per-step prompts, which this firmware sends as events.
-        return self._run_calibration(
-            response=response,
-            name="accel",
-            timeout_sec=float(self.get_parameter("accel_timeout_sec").value),
-            param1=0.0,
-            param5=1.0,
-            statustext_grace_sec=None,
         )
 
     def _run_calibration(
