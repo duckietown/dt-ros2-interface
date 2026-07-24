@@ -33,7 +33,7 @@ TOF_RANGE_TOPIC=${TOF_RANGE_TOPIC:-"/${HOSTNAME}/bottom_tof_driver_node/range"}
   done
   for _ in 1 2 3 4 5 6; do
     ros2 service call /mavros/cmd/command mavros_msgs/srv/CommandLong \
-      "{command: 511, param1: 132.0, param2: -1.0}" >/dev/null 2>&1 && break
+      "{broadcast: false, command: 511, confirmation: 0, param1: 132.0, param2: -1.0, param3: 0.0, param4: 0.0, param5: 0.0, param6: 0.0, param7: 0.0}" >/dev/null 2>&1 && break
     sleep 5
   done
 ) &
