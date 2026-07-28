@@ -56,13 +56,13 @@ class CameraNode(Node):
         self.pub_img.publish(msg)
         
         # Publish camera info alongside the image
-        self.publish_camera_info()
+        self.publish_camera_info(msg)
         
         if not self._has_published:
             self.loginfo("Published the first image.")
             self._has_published = True
 
-    def publish_camera_info(self):
+    def publish_camera_info(self, image_msg: ROS2CompressedImage):
         if self.camera_intrinsics is None:
             self.loginfo("No camera intrinsic parameters received yet")
             return
@@ -72,8 +72,8 @@ class CameraNode(Node):
             return
 
         msg = ROS2CameraInfo()
-        msg.header.stamp = self._ros2.get_clock().now().to_msg()
-        msg.header.frame_id = "camera_color_optical_frame"  # TODO: use self.camera_intrinsics.header.frame
+        msg.header.stamp = image_msg.header.stamp
+        msg.header.frame_id = image_msg.header.frame_id
         msg.width = self.camera_info.width
         msg.height = self.camera_info.height
         msg.distortion_model = "plumb_bob"
