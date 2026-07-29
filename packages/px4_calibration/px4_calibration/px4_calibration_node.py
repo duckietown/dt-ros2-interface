@@ -23,14 +23,15 @@ class PX4CalibrationNode(Node):
         self.declare_parameter("command_service", "/mavros/cmd/command")
         self.declare_parameter("status_text_topic", "/mavros/statustext/recv")
         self.declare_parameter("gyro_timeout_sec", 45.0)
-        # Assume success this long after an accepted command if no STATUSTEXT arrives
-        # (PX4 >=1.15 reports cal over events, not STATUSTEXT). Gyro and level are both
-        # quick when the vehicle is still; see grace_deadline handling below for the
-        # motion-retry case where this assumption does not hold.
+        # PX4 >=1.15 reports calibration state over MAVLink events, which MAVROS does
+        # not expose. Gyro retains the established accepted-command fallback.
         self.declare_parameter("gyro_statustext_grace_sec", 5.0)
-        # Level-horizon cal: one-shot board-level trim (param5=2), also non-interactive.
+        self.declare_parameter("gyro_assume_success_without_statustext", True)
+        # Level-horizon calibration can retry for much longer after motion. Do not
+        # report an unobservable completion unless an integrator explicitly opts in.
         self.declare_parameter("level_timeout_sec", 45.0)
         self.declare_parameter("level_statustext_grace_sec", 5.0)
+        self.declare_parameter("level_assume_success_without_statustext", False)
 
         self._callback_group = ReentrantCallbackGroup()
         self._command_client = self.create_client(
@@ -42,6 +43,7 @@ class PX4CalibrationNode(Node):
         self._last_status_text: Optional[str] = None
         self._status_lock = threading.Lock()
         self._calibration_lock = threading.Lock()
+        self._calibration_busy_until = 0.0
 
         self.create_subscription(
             StatusText,
@@ -88,6 +90,9 @@ class PX4CalibrationNode(Node):
             statustext_grace_sec=float(
                 self.get_parameter("gyro_statustext_grace_sec").value
             ),
+            assume_success_without_statustext=bool(
+                self.get_parameter("gyro_assume_success_without_statustext").value
+            ),
         )
 
     def _calibrate_level_cb(self, _request, response):
@@ -100,6 +105,9 @@ class PX4CalibrationNode(Node):
             statustext_grace_sec=float(
                 self.get_parameter("level_statustext_grace_sec").value
             ),
+            assume_success_without_statustext=bool(
+                self.get_parameter("level_assume_success_without_statustext").value
+            ),
         )
 
     def _run_calibration(
@@ -110,6 +118,7 @@ class PX4CalibrationNode(Node):
         param1: float,
         param5: float,
         statustext_grace_sec: Optional[float] = None,
+        assume_success_without_statustext: bool = False,
     ):
         if not self._calibration_lock.acquire(blocking=False):
             response.success = False
@@ -117,6 +126,17 @@ class PX4CalibrationNode(Node):
             return response
 
         try:
+            now = time.monotonic()
+            if now < self._calibration_busy_until:
+                remaining_sec = self._calibration_busy_until - now
+                response.success = False
+                response.message = (
+                    "Another PX4 calibration may still be running; retry in "
+                    f"up to {remaining_sec:.0f} seconds."
+                )
+                return response
+            self._calibration_busy_until = 0.0
+
             if not self._command_client.wait_for_service(timeout_sec=5.0):
                 response.success = False
                 response.message = "MAVROS command service is not available."
@@ -142,11 +162,10 @@ class PX4CalibrationNode(Node):
                 self._publish_status(response.message)
                 return response
 
-            # Prefer a precise "[cal] done/fail" STATUSTEXT, but PX4 >=1.15 sends none
-            # (cal status goes over events instead). So if a grace is configured (gyro and
-            # level both set one) and no STATUSTEXT shows up, accept the command ack as
-            # success; without this the service always times out despite the cal running
-            # and writing CAL_*/SENS_BOARD_* offsets.
+            # Prefer a precise "[cal] done/fail" STATUSTEXT. An accepted-command
+            # fallback is opt-in because PX4's completion events are not observable
+            # through MAVROS. Reserve the local slot through the full timeout when
+            # that fallback is used, since PX4 may still be retrying after the reply.
             start = time.monotonic()
             deadline = start + timeout_sec
             grace_deadline = (
@@ -172,14 +191,16 @@ class PX4CalibrationNode(Node):
                     return response
                 if (
                     grace_deadline is not None
+                    and assume_success_without_statustext
                     and not saw_cal_text
                     and time.monotonic() > grace_deadline
                 ):
+                    self._calibration_busy_until = deadline
                     response.success = True
                     response.message = (
-                        f"PX4 {name} calibration command accepted. This firmware sends no "
-                        "STATUSTEXT confirmation (calibration status is reported over the "
-                        "MAVLink event protocol); assuming complete."
+                        f"PX4 {name} calibration command accepted, but completion could not "
+                        "be observed through MAVROS. Assuming success as configured; further "
+                        "calibration requests are held until the configured timeout expires."
                     )
                     self._publish_status(response.message)
                     return response
