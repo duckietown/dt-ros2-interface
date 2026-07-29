@@ -24,7 +24,9 @@ class PX4CalibrationNode(Node):
         self.declare_parameter("status_text_topic", "/mavros/statustext/recv")
         self.declare_parameter("gyro_timeout_sec", 45.0)
         # Assume success this long after an accepted command if no STATUSTEXT arrives
-        # (PX4 >=1.15 reports cal over events, not STATUSTEXT). Both cals are quick.
+        # (PX4 >=1.15 reports cal over events, not STATUSTEXT). Gyro and level are both
+        # quick when the vehicle is still; see grace_deadline handling below for the
+        # motion-retry case where this assumption does not hold.
         self.declare_parameter("gyro_statustext_grace_sec", 5.0)
         # Level-horizon cal: one-shot board-level trim (param5=2), also non-interactive.
         self.declare_parameter("level_timeout_sec", 45.0)
@@ -141,9 +143,10 @@ class PX4CalibrationNode(Node):
                 return response
 
             # Prefer a precise "[cal] done/fail" STATUSTEXT, but PX4 >=1.15 sends none
-            # (cal status goes over events instead). So if a grace is allowed (gyro) and
-            # no STATUSTEXT shows up, accept the command ack as success; without this the
-            # service always times out despite the cal running and writing CAL_* offsets.
+            # (cal status goes over events instead). So if a grace is configured (gyro and
+            # level both set one) and no STATUSTEXT shows up, accept the command ack as
+            # success; without this the service always times out despite the cal running
+            # and writing CAL_*/SENS_BOARD_* offsets.
             start = time.monotonic()
             deadline = start + timeout_sec
             grace_deadline = (
