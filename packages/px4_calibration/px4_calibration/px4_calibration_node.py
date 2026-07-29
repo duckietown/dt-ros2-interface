@@ -23,7 +23,14 @@ class PX4CalibrationNode(Node):
         self.declare_parameter("command_service", "/mavros/cmd/command")
         self.declare_parameter("status_text_topic", "/mavros/statustext/recv")
         self.declare_parameter("gyro_timeout_sec", 45.0)
-        self.declare_parameter("accel_timeout_sec", 180.0)
+        # Assume success this long after an accepted command if no STATUSTEXT arrives
+        # (PX4 >=1.15 reports cal over events, not STATUSTEXT). Gyro and level are both
+        # quick when the vehicle is still; see grace_deadline handling below for the
+        # motion-retry case where this assumption does not hold.
+        self.declare_parameter("gyro_statustext_grace_sec", 5.0)
+        # Level-horizon cal: one-shot board-level trim (param5=2), also non-interactive.
+        self.declare_parameter("level_timeout_sec", 45.0)
+        self.declare_parameter("level_statustext_grace_sec", 5.0)
 
         self._callback_group = ReentrantCallbackGroup()
         self._command_client = self.create_client(
@@ -51,8 +58,8 @@ class PX4CalibrationNode(Node):
         )
         self.create_service(
             Trigger,
-            "/px4_calibration/calibrate_accel",
-            self._calibrate_accel_cb,
+            "/px4_calibration/calibrate_level",
+            self._calibrate_level_cb,
             callback_group=self._callback_group,
         )
 
@@ -78,15 +85,21 @@ class PX4CalibrationNode(Node):
             timeout_sec=float(self.get_parameter("gyro_timeout_sec").value),
             param1=1.0,
             param5=0.0,
+            statustext_grace_sec=float(
+                self.get_parameter("gyro_statustext_grace_sec").value
+            ),
         )
 
-    def _calibrate_accel_cb(self, _request, response):
+    def _calibrate_level_cb(self, _request, response):
         return self._run_calibration(
             response=response,
-            name="accel",
-            timeout_sec=float(self.get_parameter("accel_timeout_sec").value),
+            name="level",
+            timeout_sec=float(self.get_parameter("level_timeout_sec").value),
             param1=0.0,
-            param5=1.0,
+            param5=2.0,
+            statustext_grace_sec=float(
+                self.get_parameter("level_statustext_grace_sec").value
+            ),
         )
 
     def _run_calibration(
@@ -96,6 +109,7 @@ class PX4CalibrationNode(Node):
         timeout_sec: float,
         param1: float,
         param5: float,
+        statustext_grace_sec: Optional[float] = None,
     ):
         if not self._calibration_lock.acquire(blocking=False):
             response.success = False
@@ -128,12 +142,24 @@ class PX4CalibrationNode(Node):
                 self._publish_status(response.message)
                 return response
 
-            deadline = time.monotonic() + timeout_sec
+            # Prefer a precise "[cal] done/fail" STATUSTEXT, but PX4 >=1.15 sends none
+            # (cal status goes over events instead). So if a grace is configured (gyro and
+            # level both set one) and no STATUSTEXT shows up, accept the command ack as
+            # success; without this the service always times out despite the cal running
+            # and writing CAL_*/SENS_BOARD_* offsets.
+            start = time.monotonic()
+            deadline = start + timeout_sec
+            grace_deadline = (
+                start + statustext_grace_sec if statustext_grace_sec is not None else None
+            )
             done_text = f"calibration done: {name}"
+            saw_cal_text = False
             while time.monotonic() < deadline and rclpy.ok():
                 with self._status_lock:
                     status = self._last_status_text or ""
                 lower_status = status.lower()
+                if status.startswith("[cal]"):
+                    saw_cal_text = True
                 if done_text in lower_status:
                     response.success = True
                     response.message = status
@@ -142,6 +168,20 @@ class PX4CalibrationNode(Node):
                 if status.startswith("[cal]") and "fail" in lower_status:
                     response.success = False
                     response.message = status
+                    self._publish_status(status)
+                    return response
+                if (
+                    grace_deadline is not None
+                    and not saw_cal_text
+                    and time.monotonic() > grace_deadline
+                ):
+                    response.success = True
+                    response.message = (
+                        f"PX4 {name} calibration command accepted. This firmware sends no "
+                        "STATUSTEXT confirmation (calibration status is reported over the "
+                        "MAVLink event protocol); assuming complete."
+                    )
+                    self._publish_status(response.message)
                     return response
                 time.sleep(0.1)
 
