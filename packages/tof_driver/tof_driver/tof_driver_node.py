@@ -12,10 +12,17 @@ from dt_robot_utils import get_robot_name
 from dtps import context
 from dtps_http import RawData
 from duckietown_messages.sensors.range import Range
+from duckietown_messages.sensors.range_finder import RangeFinder
 from duckietown_messages.utils.exceptions import DataDecodingError
 
-MAX_RANGE = 99  # meters
-OUT_OF_RANGE = 999
+# well outside [min_range, max_range], which is how sensor_msgs/Range says to mark a
+# reading the consumer should discard
+OUT_OF_RANGE = 999.0
+
+# used until the driver's info message arrives. VL53L1X in long distance mode
+DEFAULT_MIN_RANGE = 0.04  # meters
+DEFAULT_MAX_RANGE = 3.6  # meters
+DEFAULT_FOV = 0.471  # radians, 27 degrees
 
 
 class ToFNode(ROS2Node):
@@ -25,6 +32,10 @@ class ToFNode(ROS2Node):
         # arguments
         self.declare_parameter("sensor_name", "front_center")
         self._sensor_name = self.get_parameter("sensor_name").get_parameter_value().string_value
+        # replaced by whatever the driver advertises on its info queue
+        self._min_range: float = DEFAULT_MIN_RANGE
+        self._max_range: float = DEFAULT_MAX_RANGE
+        self._fov: float = DEFAULT_FOV
         # create publisher
         self._pub = self.create_publisher(
             ROSRange,
@@ -32,6 +43,28 @@ class ToFNode(ROS2Node):
             1
         )
         self.get_logger().info(f"Initialized for {self._sensor_name} sensor.")
+
+    async def on_info(self, data: RawData):
+        """Pick up the sensor's real geometry from the driver. Without it the messages go
+        out with an unset fov and minimum, making the standard validity check meaningless.
+        """
+        try:
+            info: RangeFinder = RangeFinder.from_rawdata(data)
+        except DataDecodingError as e:
+            self.get_logger().error(f"Failed to decode the sensor info message: {e.message}")
+            return
+        before = (self._min_range, self._max_range, self._fov)
+        if info.minimum is not None:
+            self._min_range = float(info.minimum)
+        if info.maximum is not None:
+            self._max_range = float(info.maximum)
+        if info.fov is not None:
+            self._fov = float(info.fov)
+        if (self._min_range, self._max_range, self._fov) != before:
+            self.get_logger().info(
+                f"Sensor geometry: fov={self._fov:.3f}rad, "
+                f"range=[{self._min_range}, {self._max_range}]m."
+            )
 
     async def publish(self, data: RawData):
         # print(data)
@@ -49,11 +82,12 @@ class ToFNode(ROS2Node):
         if tof.data is not None and isinstance(tof.data, (float, int)):
             distance = float(tof.data)
         else:
-            self.get_logger().warn(f"Invalid or None data received: {tof.data}")
+            # the driver sends nothing when the chip saw no target, which is ordinary
+            # for a sensor pointed at open space, so this is not a warning
+            self.get_logger().debug("No target in range.")
             distance = OUT_OF_RANGE
 
-        if distance > MAX_RANGE:
-            self.get_logger().warn(f"Distance {distance} is out of valid range, setting to max range {OUT_OF_RANGE}")
+        if distance > self._max_range:
             distance = OUT_OF_RANGE
 
         # create Range message
@@ -71,7 +105,11 @@ class ToFNode(ROS2Node):
         elif not isinstance(frame_id, str):
             frame_id = str(frame_id)
         tof_msg.header.frame_id = frame_id
-        tof_msg.max_range = float(MAX_RANGE)
+        # left unset, radiation_type reads as ULTRASOUND
+        tof_msg.radiation_type = ROSRange.INFRARED
+        tof_msg.field_of_view = float(self._fov)
+        tof_msg.min_range = float(self._min_range)
+        tof_msg.max_range = float(self._max_range)
         tof_msg.range = float(distance)  # Ensure distance is float
         tof_msg.variance = 0.0
         # print(tof_msg)
@@ -82,6 +120,8 @@ class ToFNode(ROS2Node):
         try:
             switchboard = (await context("switchboard")).navigate(self._robot_name)
             self.get_logger().info("Connected to switchboard context.")
+            info = await (switchboard / "sensor" / "time_of_flight" / self._sensor_name / "info").until_ready()
+            await info.subscribe(self.on_info)
             tof = await (switchboard / "sensor" / "time_of_flight" / self._sensor_name / "range").until_ready()
             self.get_logger().info(f"Publishing to topic: sensor/time_of_flight/{self._sensor_name}/range")
             await tof.subscribe(self.publish)
