@@ -4,6 +4,7 @@ import asyncio
 from threading import Thread
 
 import rclpy
+from builtin_interfaces.msg import Time as TimeMsg
 from rclpy.executors import SingleThreadedExecutor
 from rclpy.node import Node as ROS2Node
 from sensor_msgs.msg import Range as ROSRange
@@ -93,7 +94,14 @@ class ToFNode(ROS2Node):
         # create Range message
         tof_msg = ROSRange()
         tof_msg.header = Header()
-        tof_msg.header.stamp = self.get_clock().now().to_msg()
+        # stamp with the driver's read time, not ours: it is the closest we have to when the
+        # chip actually measured. This node's own receive time only tells you when the bridge
+        # got around to forwarding it, which drifts with scheduling and I2C bus contention
+        driver_timestamp = getattr(tof.header, "timestamp", None)
+        if driver_timestamp is not None:
+            tof_msg.header.stamp = self._stamp_from_epoch(driver_timestamp)
+        else:
+            tof_msg.header.stamp = self.get_clock().now().to_msg()
         frame_id = getattr(tof.header, "frame", None)
         if isinstance(frame_id, bytes):
             try:
@@ -115,6 +123,17 @@ class ToFNode(ROS2Node):
         # print(tof_msg)
         self._pub.publish(tof_msg)
         # self.get_logger().info(f"Published range message: {tof_msg}")
+
+    @staticmethod
+    def _stamp_from_epoch(epoch_seconds: float) -> TimeMsg:
+        sec = int(epoch_seconds)
+        nanosec = int(round((epoch_seconds - sec) * 1e9))
+        # rounding a fraction just under a second carries into the next one, and a
+        # nanosec of 1e9 is out of contract even though it fits the field
+        if nanosec >= 1_000_000_000:
+            sec += 1
+            nanosec -= 1_000_000_000
+        return TimeMsg(sec=sec, nanosec=nanosec)
 
     async def worker(self):
         try:
