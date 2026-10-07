@@ -149,7 +149,7 @@ class CameraNode(Node):
         msg.header.frame_id = image_msg.header.frame_id
         msg.width = self.camera_info.width
         msg.height = self.camera_info.height
-        msg.distortion_model = "plumb_bob"
+        msg.distortion_model = getattr(self.camera_intrinsics, "distortion_model", "plumb_bob")
         msg.d = self.camera_intrinsics.D
         msg.k = self.camera_intrinsics.K
         msg.r = self.camera_intrinsics.R
