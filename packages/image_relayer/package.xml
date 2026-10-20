@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<package format="3">
+ <name>image_relayer</name>
+ <version>0.0.1</version>
+ <description>Relays ROS 2 compressed image topics (e.g. debug images) to DTPS so that they can be shown in the Duckietown Viewer</description>
+ <maintainer email="akshet.patel@duckietown.com">Akshet Patel</maintainer>
+ <license>None</license>
+ <depend>rclpy</depend>
+ <depend>sensor_msgs</depend>
+ <export>
+   <build_type>ament_python</build_type>
+ </export>
+</package>
