@@ -10,14 +10,11 @@ from duckietown_msgs.msg import WheelEncoderStamped
 from geometry_msgs.msg import TransformStamped, Transform, Quaternion
 from tf2_ros import TransformBroadcaster
 
-from dt_robot_utils import get_robot_name
+from dt_robot_utils import get_robot_name, get_robot_params, get_calibration_file
 from dtps import context, ContextConfig
 from dtps_http import RawData
 from duckietown_messages.standard.integer import Integer
 from duckietown_messages.utils.exceptions import DataDecodingError
-
-RESOLUTION: int = 135
-
 
 class WheelEncoderNode(ROS2Node):
 
@@ -27,12 +24,15 @@ class WheelEncoderNode(ROS2Node):
         # get parameters
         self.declare_parameter("wheel", "left")  # Default value
         self._wheel = self.get_parameter("wheel").get_parameter_value().string_value
+        # encoder resolution comes from /data/config/calibrations/robot/
+        self._resolution: int = get_robot_params().encoder_resolution
+        self.get_logger().info(f"Robot parameters file: {get_calibration_file('robot')}")
         # publishers
         self.pub_ticks = self.create_publisher(WheelEncoderStamped, "~/tick", 1)
         # tf broadcaster for wheel frame
         self.tf_broadcaster = TransformBroadcaster(self)
         # ---
-        self.get_logger().info(f"Initialized for {self._wheel} wheel.")
+        self.get_logger().info(f"Initialized for {self._wheel} wheel (resolution: {self._resolution} ticks/rev).")
 
     async def publish(self, data: RawData):
         # decode data
@@ -46,12 +46,12 @@ class WheelEncoderNode(ROS2Node):
         ticks_msg.header.stamp = self.get_clock().now().to_msg()
         ticks_msg.header.frame_id = f"{self._robot_name}/{self._wheel}_wheel_axis"
         ticks_msg.data = ticks.data
-        ticks_msg.resolution = RESOLUTION
+        ticks_msg.resolution = self._resolution
         ticks_msg.type = WheelEncoderStamped.ENCODER_TYPE_INCREMENTAL
         # publish messages
         self.pub_ticks.publish(ticks_msg)
         # publish TF
-        angle = (float(ticks.data) / float(RESOLUTION)) * 2 * pi
+        angle = (float(ticks.data) / float(self._resolution)) * 2 * pi
         quat = tf_transformations.quaternion_from_euler(0, angle, 0)
         transform_stamped = TransformStamped()
         transform_stamped.header.stamp = self.get_clock().now().to_msg()
