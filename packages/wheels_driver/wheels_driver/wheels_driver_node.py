@@ -3,9 +3,11 @@
 import asyncio
 import traceback
 from asyncio import AbstractEventLoop
+from threading import Thread
 from typing import Optional
 
 import rclpy
+from rclpy.executors import SingleThreadedExecutor
 from rclpy.node import Node as ROS2Node
 from rclpy.qos import QoSProfile
 from std_msgs.msg import Bool
@@ -61,29 +63,39 @@ class WheelsDriverNode(ROS2Node):
             self.get_logger().warn("Received emergency_stop but ESTOP context not ready; will publish once bound.")
 
     def cmds_cb(self, msg: WheelsCmdStamped):
-        self.get_logger().info(f"Received wheels command: left={msg.vel_left}, right={msg.vel_right}")
+        """Forwards a wheel command to DTPS as soon as it arrives (runs on the ROS executor thread)."""
+        self.get_logger().debug(f"Received wheels command: left={msg.vel_left}, right={msg.vel_right}")
         self._data = DifferentialPWM(left=msg.vel_left, right=msg.vel_right)
+        if self._loop is not None:
+            asyncio.run_coroutine_threadsafe(self._flush(), self._loop)
+
+    async def _flush(self) -> None:
+        """Publishes the pending command, if any; keeps it for the retry loop when it cannot be sent."""
+        data = self._data
+        if data is None:
+            return
+        if self._pwm is None:
+            self.get_logger().warn("PWM context not ready; scheduling bind and retaining last command.")
+            await self._schedule_bind_pwm()
+            return
+        try:
+            await self._pwm.publish(data.to_rawdata())
+            # only clear the command if it is still the one we sent (a newer one may have arrived)
+            if self._data is data:
+                self._data = None
+        except Exception:
+            self.get_logger().error("Failed to publish the last command. Will rebind PWM and retry later.")
+            traceback.print_exc()
+            # drop the binding to trigger a rebind; the command stays pending
+            self._pwm = None
+            await self._schedule_bind_pwm()
 
     async def publisher(self):
+        """Retry loop: commands are normally forwarded on arrival by `cmds_cb`; this only re-sends a
+        command that could not be delivered (e.g. PWM context not bound yet)."""
         while rclpy.ok():
-            if self._data:
-                if self._pwm is None:
-                    self.get_logger().warn("PWM context not ready; scheduling bind and retaining last command.")
-                    await self._schedule_bind_pwm()
-                else:
-                    self.get_logger().info(f"Publishing data: left={self._data.left}, right={self._data.right}")
-                    try:
-                        await self._pwm.publish(self._data.to_rawdata())
-                        # Only clear _data if publishing succeeds
-                        self._data = None
-                    except Exception:
-                        self.get_logger().error("Failed to publish the last command. Will rebind PWM and retry later.")
-                        traceback.print_exc()
-                        # Drop the binding to trigger rebind
-                        self._pwm = None
-                        await self._schedule_bind_pwm()
-            # process ROS callbacks without blocking the loop
-            rclpy.spin_once(self, timeout_sec=0.0)
+            if self._data is not None:
+                await self._flush()
             await asyncio.sleep(1.0 / self._frequency)
 
     async def publish_autopilot(self, data):
@@ -254,10 +266,19 @@ class WheelsDriverNode(ROS2Node):
             await asyncio.sleep(0.1)
 
     def spin(self):
+        # ROS callbacks run on their own executor thread, so that commands are forwarded as soon as
+        # they arrive instead of once per iteration of the asyncio loop
+        executor = SingleThreadedExecutor()
+        executor.add_node(self)
+        spin_thread = Thread(target=executor.spin, daemon=True)
+        spin_thread.start()
         try:
             asyncio.run(self.worker())
         except RuntimeError:
             self.get_logger().error("An error occurred while running the event loop.")
+        finally:
+            executor.shutdown(1)
+            spin_thread.join(timeout=1)
 
 
 def main(args=None):
