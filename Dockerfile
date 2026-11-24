@@ -155,5 +155,10 @@ LABEL \
 # <== Do not change the code above this line
 # <================================================== \
 
+# Ente dashboard guest filter owns :9001; rosbridge listens on :9002.
+# Keep this after the protected block so template replacements cannot drop it.
+ARG WEBSOCKET_BRIDGE_PORT=9002
+ENV WEBSOCKET_BRIDGE_PORT=${WEBSOCKET_BRIDGE_PORT}
+
 # install mavros geographiclib datasets
 RUN wget -O - https://raw.githubusercontent.com/mavlink/mavros/ros2/mavros/scripts/install_geographiclib_datasets.sh | bash

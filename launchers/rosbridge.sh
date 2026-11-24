@@ -17,7 +17,7 @@ dt-set-module-healthy
 # launching app
 dt-exec ros2 launch \
   rosbridge_websocket rosbridge_websocket.launch.py \
-    port:=${WEBSOCKET_BRIDGE_PORT:-9001} \
+    port:=${WEBSOCKET_BRIDGE_PORT:-9002} \
     veh:="$VEHICLE_NAME"
 
 # ----------------------------------------------------------------------------

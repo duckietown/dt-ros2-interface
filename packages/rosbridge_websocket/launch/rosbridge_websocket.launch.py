@@ -16,7 +16,7 @@ def generate_launch_description():
     
     port_arg = DeclareLaunchArgument(
         'port',
-        default_value='9090',
+        default_value='9002',
         description='Port for the websocket server'
     )
     
