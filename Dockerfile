@@ -5,6 +5,8 @@ ARG PROJECT_MAINTAINER
 # pick an icon from: https://fontawesome.com/v4.7.0/icons/
 ARG PROJECT_ICON="cube"
 ARG PROJECT_FORMAT_VERSION
+# - rosbridge (ente dashboard guest filter owns :9001)
+ARG PORT=9002
 
 # ==================================================>
 # ==> Do not change the code below this line
@@ -32,6 +34,7 @@ ARG BASE_TAG
 ARG BASE_REPOSITORY
 ARG BASE_ORGANIZATION
 ARG LAUNCHER
+ARG PORT
 # - buildkit
 ARG TARGETPLATFORM
 ARG TARGETOS
@@ -154,6 +157,9 @@ LABEL \
     org.duckietown.label.base.tag="${BASE_TAG}"
 # <== Do not change the code above this line
 # <================================================== \
+
+# configure rosbridge port (matches dt-rosbridge-websocket)
+ENV WEBSOCKET_BRIDGE_PORT=${PORT}
 
 # install mavros geographiclib datasets
 RUN wget -O - https://raw.githubusercontent.com/mavlink/mavros/ros2/mavros/scripts/install_geographiclib_datasets.sh | bash
